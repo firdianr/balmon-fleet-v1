@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\VehicleController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
+// use App\Services\WhatsAppService;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {

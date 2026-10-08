@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  wa-gateway:
+    build: .
+    container_name: wa-gateway
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./auth_info_baileys:/app/auth_info_baileys
