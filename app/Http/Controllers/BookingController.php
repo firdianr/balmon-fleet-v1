@@ -823,7 +823,7 @@ class BookingController extends Controller
 
         $msgCancel = "🚫 *PEMBATALAN PEMINJAMAN ARMADA*\n\n"
                 . "Permohonan peminjaman kendaraan ke *{$booking->destination}* (No. Surat: {$booking->letter_number}) telah *DIBATALKAN* oleh *{$cancellerName}*.\n\n"
-                . "Armada *" . ($booking->vehicle->name ?? '-') . "* kini telah dibebaskan kembali.";
+                . "Armada *" . ($booking->vehicle->model ?? '-') ." (" . ($booking->vehicle->plate_number ?? '') . ")* kini telah dibebaskan kembali.";
 
         // 1. Kirim Notifikasi ke Pemohon
         if ($booking->user && $booking->user->phone) {

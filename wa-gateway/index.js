@@ -41,30 +41,59 @@ async function connectToWhatsApp() {
     });
 }
 
-// 🚀 API Endpoint untuk Menerima Pesan dari Laravel
+// 🚀 API Endpoint Async: Terima data -> Langsung kirim response -> Olah antrean di background
 app.post('/send-message', async (req, res) => {
-    try {
-        const { phone, message } = req.body;
+    const { phone, message } = req.body;
 
-        if (!phone || !message) {
-            return res.status(400).json({ status: false, message: 'Parameter phone dan message wajib diisi' });
-        }
-
-        // Format nomor Indonesia (Ubah 08xx atau +628xx menjadi 628xx@s.whatsapp.net)
-        let formattedPhone = phone.replace(/[^0-9]/g, '');
-        if (formattedPhone.startsWith('0')) {
-            formattedPhone = '62' + formattedPhone.slice(1);
-        }
-        const jid = `${formattedPhone}@s.whatsapp.net`;
-
-        // Kirim Pesan
-        await sock.sendMessage(jid, { text: message });
-
-        return res.json({ status: true, message: `Pesan berhasil dikirim ke ${phone}` });
-    } catch (error) {
-        console.error('Error sending message:', error);
-        return res.status(500).json({ status: false, error: error.message });
+    if (!phone || !message) {
+        return res.status(400).json({ status: false, message: 'Parameter phone dan message wajib diisi' });
     }
+
+    // 1. Beri respons cepat ke Laravel
+    res.json({ status: true, message: 'Pesan telah diterima dan sedang diproses di antrean background.' });
+
+    // 2. Normalisasi & Ratakan (Flatten) input array/string
+    // .flat(Infinity) menangani kasus array bersarang dari Laravel
+    const rawList = Array.isArray(phone) ? phone.flat(Infinity) : [phone];
+
+    // 3. Eksekusi pengiriman di background
+    (async () => {
+        for (let i = 0; i < rawList.length; i++) {
+            let item = rawList[i];
+
+            // Jika item masih berupa array/object, lewati atau ambil string-nya
+            if (Array.isArray(item)) {
+                item = item[0];
+            }
+
+            if (!item) continue;
+
+            try {
+                // Pastikan dibaca sebagai String sebelum dipanggil .replace()
+                let formattedPhone = String(item).replace(/[^0-9]/g, '');
+
+                if (formattedPhone.startsWith('0')) {
+                    formattedPhone = '62' + formattedPhone.slice(1);
+                }
+
+                if (!formattedPhone) continue;
+
+                const jid = `${formattedPhone}@s.whatsapp.net`;
+
+                // Kirim pesan via Baileys
+                await sock.sendMessage(jid, { text: message });
+                console.log(`[WA Gateway] ✅ Pesan terkirim ke ${jid} (${i + 1}/${rawList.length})`);
+
+            } catch (err) {
+                console.error(`[WA Gateway] ❌ Gagal kirim pesan ke ${item}:`, err.message);
+            }
+
+            // Jeda 2 detik antar nomor
+            if (i < rawList.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
+    })();
 });
 
 // Jalankan Server Express di Port 3000
