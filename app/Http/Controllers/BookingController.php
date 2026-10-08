@@ -181,12 +181,29 @@ class BookingController extends Controller
 
         // C. Kirim ke Anggota Tim (jika ada)
         if (!empty($booking->participants)) {
-            // Asumsi participants menyimpan ID user / nomor HP
-            $participantPhones = User::whereIn('id', $booking->participants)->pluck('phone')->filter()->toArray();
-            $msgMember = "ℹ️ *INFORMASI PERJALANAN DINAS*\n\n"
-                    . "Anda telah didaftarkan oleh *" . Auth::user()->name . "* sebagai anggota tim peminjaman armada ke *{$booking->destination}* pada tanggal *{$booking->start_date->format('d/m/Y')}*.";
+            $nips = [];
 
-            WhatsAppService::sendBulkMessage($participantPhones, $msgMember);
+            // Ekstrak NIP dari setiap string anggota (Contoh: "Nama, S.E. (NIP: 199610102020122010)")
+            foreach ($booking->participants as $participant) {
+                if (preg_match('/NIP:\s*([0-9]+)/i', $participant, $matches)) {
+                    $nips[] = $matches[1];
+                }
+            }
+
+            // Ambil nomor telepon dari tabel users berdasarkan NIP yang cocok
+            if (!empty($nips)) {
+                $participantPhones = User::whereIn('nip', $nips)
+                    ->pluck('phone')
+                    ->filter()
+                    ->toArray();
+
+                if (!empty($participantPhones)) {
+                    $msgMember = "ℹ️ *INFORMASI PERJALANAN DINAS*\n\n"
+                        . "Anda telah didaftarkan oleh *" . Auth::user()->name . "* sebagai anggota tim peminjaman armada ke *{$booking->destination}* pada tanggal *{$booking->start_date->format('d/m/Y')}*.";
+
+                    WhatsAppService::sendBulkMessage($participantPhones, $msgMember);
+                }
+            }
         }
 
         return redirect()->route('bookings.index')
