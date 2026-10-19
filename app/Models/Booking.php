@@ -15,8 +15,12 @@ class Booking extends Model
     protected $fillable = [
         'letter_number',
         'letter_slug',
+        'bast',
         'user_id',
         'vehicle_id',
+        'vehicle_type',
+        'vehicle_requirements',
+        'driver_id',
         'start_date',
         'end_date',
         'destination',
@@ -51,12 +55,12 @@ class Booking extends Model
     protected function casts(): array
     {
         return [
-            'start_date' => 'datetime',
-            'end_date' => 'datetime',
+            'start_date'   => 'datetime',
+            'end_date'     => 'datetime',
             'participants' => 'array',
-            'approved_at' => 'datetime',
-            'departed_at' => 'datetime',
-            'returned_at' => 'datetime',
+            'approved_at'  => 'datetime',
+            'departed_at'  => 'datetime',
+            'returned_at'  => 'datetime',
         ];
     }
 
@@ -75,17 +79,22 @@ class Booking extends Model
         return $this->belongsTo(Vehicle::class, 'vehicle_id');
     }
 
+    public function driver()
+    {
+        return $this->belongsTo(User::class, 'driver_id');
+    }
+
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function departureConfirmer()
+    public function departureConfirmer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'departed_confirmed_by');
     }
 
-    public function returnApprover()
+    public function returnApprover(): BelongsTo
     {
         return $this->belongsTo(User::class, 'returned_confirmed_by');
     }

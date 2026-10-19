@@ -59,6 +59,25 @@
             @endif
         </div>
 
+        {{-- PANGKAT & JABATAN --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {{-- Pangkat / Golongan --}}
+            <div>
+                <x-input-label for="pangkat" :value="__('Pangkat / Golongan')" class="text-gray-700 font-semibold" />
+                <x-text-input id="pangkat" name="pangkat" type="text" class="mt-1 block w-full bg-slate-100 text-gray-500 border-gray-200 cursor-not-allowed rounded-xl" :value="old('pangkat', $user->pangkat)" readonly placeholder="Contoh: Penata (III/c) / PPPK Golongan IX" />
+                <x-input-error class="mt-2" :messages="$errors->get('pangkat')" />
+                <p class="mt-1 text-xs text-blue-600 font-medium">* Dikelola Administrator.</p>
+            </div>
+
+            {{-- Jabatan --}}
+            <div>
+                <x-input-label for="jabatan" :value="__('Jabatan')" class="text-gray-700 font-semibold" />
+                <x-text-input id="jabatan" name="jabatan" type="text" class="mt-1 block w-full bg-slate-100 text-gray-500 border-gray-200 cursor-not-allowed rounded-xl" :value="old('jabatan', $user->jabatan)" readonly placeholder="Contoh: Pengendali Frekuensi Radio" />
+                <x-input-error class="mt-2" :messages="$errors->get('jabatan')" />
+                <p class="mt-1 text-xs text-blue-600 font-medium">* Dikelola Administrator.</p>
+            </div>
+        </div>
+
         {{-- TELEPON & DEPARTEMEN --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

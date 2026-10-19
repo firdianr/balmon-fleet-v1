@@ -9,7 +9,7 @@
                         {{-- LOGO GAMBAR BARU --}}
                         <img src="{{ asset('images/logo-komdigi.png') }}" alt="Logo Balmon" class="block h-9 w-auto object-contain">
                         
-                        {{-- OPSIONAL: NAMA SISTEM DI SAMPING LOGO --}}
+                        {{-- NAMA SISTEM --}}
                         <span class="font-bold text-lg text-gray-800 tracking-wide">
                             BALMON <span class="text-indigo-600">FLEET</span>
                         </span>
@@ -18,54 +18,33 @@
 
                 <!-- Desktop Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    {{-- Dashboard --}}
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
 
-                    {{-- Daftar Armada (Bisa Dilihat Pegawai & Admin) --}}
-                    <x-nav-link :href="route('vehicles.index')" :active="request()->routeIs('vehicles.*')">
-                        {{ __('Daftar Armada') }}
-                    </x-nav-link>
-
-                    {{-- Kalender Jadwal --}}
-                    <x-nav-link :href="route('bookings.calendar')" :active="request()->routeIs('bookings.calendar')">
+                    <x-nav-link :href="route('calendar.index')" :active="request()->routeIs('calendar.*')">
                         {{ __('Kalender Jadwal') }}
                     </x-nav-link>
 
-                    {{-- Khusus Admin: Kelola User --}}
-                    @if(auth()->user()->isAdmin())
-                        <x-nav-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')">
-                            {{ __('Kelola User') }}
+                    @if(auth()->user()->isAdminApp())
+                        <x-nav-link :href="route('admin_app.vehicles.index')" :active="request()->routeIs('admin_app.vehicles.*')">
+                            {{ __('Kelola Armada') }}
+                        </x-nav-link>
+                    @else
+                        <x-nav-link :href="route('vehicles.index')" :active="request()->routeIs('vehicles.*')">
+                            {{ __('Daftar Armada') }}
+                        </x-nav-link>
+                    @endif
+
+                    @if(auth()->user()->isAdminApp())
+                        <x-nav-link :href="route('admin_app.users.index')" :active="request()->routeIs('admin.users.*')">
+                            {{ __('Kelola Pengguna') }}
                         </x-nav-link>
                     @endif
                 </div>
-
-                <!-- Responsive Navigation Menu -->
-                <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
-                    <div class="pt-2 pb-3 space-y-1">
-                        <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                            {{ __('Dashboard') }}
-                        </x-responsive-nav-link>
-
-                        <x-responsive-nav-link :href="route('vehicles.index')" :active="request()->routeIs('vehicles.*')">
-                            {{ __('Daftar Armada') }}
-                        </x-responsive-nav-link>
-
-                        <x-responsive-nav-link :href="route('bookings.calendar')" :active="request()->routeIs('bookings.calendar')">
-                            {{ __('Kalender Jadwal') }}
-                        </x-responsive-nav-link>
-
-                        @if(auth()->user()->isAdmin())
-                            <x-responsive-nav-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')">
-                                {{ __('Kelola User') }}
-                            </x-responsive-nav-link>
-                        @endif
-                    </div>
-                </div>
             </div>
 
-            <!-- Settings Dropdown -->
+            <!-- Settings Dropdown (Desktop) -->
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
@@ -99,7 +78,7 @@
                 </x-dropdown>
             </div>
 
-            <!-- Hamburger -->
+            <!-- Hamburger Button (Mobile Toggle) -->
             <div class="-me-2 flex items-center sm:hidden">
                 <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out">
                     <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
@@ -111,12 +90,33 @@
         </div>
     </div>
 
-    <!-- Responsive Navigation Menu -->
-    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
+    <!-- Responsive Navigation Menu (Mobile Menu Container) -->
+    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden border-t border-gray-200 bg-white">
+        <!-- Navigation Links -->
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+
+            <x-responsive-nav-link :href="route('calendar.index')" :active="request()->routeIs('calendar.*')">
+                {{ __('Kalender Jadwal') }}
+            </x-responsive-nav-link>
+
+            @if(auth()->user()->isAdminApp())
+                <x-responsive-nav-link :href="route('admin_app.vehicles.index')" :active="request()->routeIs('admin_app.vehicles.*')">
+                    {{ __('Kelola Armada') }}
+                </x-responsive-nav-link>
+            @else
+                <x-responsive-nav-link :href="route('vehicles.index')" :active="request()->routeIs('vehicles.*')">
+                    {{ __('Daftar Armada') }}
+                </x-responsive-nav-link>
+            @endif
+
+            @if(auth()->user()->isAdminApp())
+                <x-responsive-nav-link :href="route('admin_app.users.index')" :active="request()->routeIs('admin.users.*')">
+                    {{ __('Kelola Pengguna') }}
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->

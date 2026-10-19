@@ -29,16 +29,24 @@ class UserController extends Controller
             'nip'        => 'nullable|string|max:20|unique:users,nip',
             'email'      => 'required|string|email|max:255|unique:users,email',
             'password'   => 'required|string|min:8',
-            'role'       => 'required|in:admin,pegawai',
+            'role'       => 'required|in:admin_app,admin_lap,pegawai,approver,driver',
             'phone'      => 'nullable|string|max:20',
+            'pangkat'     => 'nullable|string|max:100',
+            'jabatan'    => 'nullable|string|max:100',
             'department' => 'nullable|string|max:100',
+        ], [
+            // 💡 Tambahkan pesan kustom di sini agar pesan tidak keluar 'validation.unique':
+            'nip.unique'   => 'NIP yang Anda masukkan sudah terdaftar pada akun lain.',
+            'email.unique' => 'Alamat Email Dinas yang Anda masukkan sudah terdaftar.',
+            'email.required' => 'Alamat Email Dinas wajib diisi.',
+            'role.required'  => 'Role / Hak Akses wajib dipilih.',
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
 
         User::create($validated);
 
-        return redirect()->route('admin.users.index')->with('success', 'Akun Pegawai berhasil ditambahkan.');
+        return redirect()->route('admin_app.users.index')->with('success', 'Akun Pegawai berhasil ditambahkan.');
     }
 
     public function edit(User $user)
@@ -52,9 +60,18 @@ class UserController extends Controller
             'name'       => 'required|string|max:255',
             'nip'        => 'nullable|string|max:20|unique:users,nip,' . $user->id,
             'email'      => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'role'       => 'required|in:admin,pegawai',
+            'role'       => 'required|in:admin_app,admin_lap,pegawai,approver,driver',
             'phone'      => 'nullable|string|max:20',
+            'pangkat'     => 'nullable|string|max:100',
+            'jabatan'    => 'nullable|string|max:100',
             'department' => 'nullable|string|max:100',
+        ], [
+            // 💡 Tambahkan pesan kustom di sini agar pesan tidak keluar 'validation.unique':
+            'role.in' => 'Role / Hak Akses yang dipilih tidak valid.',
+            'nip.unique'   => 'NIP yang Anda masukkan sudah terdaftar pada akun lain.',
+            'email.unique' => 'Alamat Email Dinas yang Anda masukkan sudah terdaftar.',
+            'email.required' => 'Alamat Email Dinas wajib diisi.',
+            'role.required'  => 'Role / Hak Akses wajib dipilih.',
         ]);
 
         if ($request->filled('password')) {
@@ -64,7 +81,7 @@ class UserController extends Controller
 
         $user->update($validated);
 
-        return redirect()->route('admin.users.index')->with('success', 'Data pegawai berhasil diperbarui.');
+        return redirect()->route('admin_app.users.index')->with('success', 'Data pegawai berhasil diperbarui.');
     }
 
     public function destroy(User $user)
@@ -75,6 +92,6 @@ class UserController extends Controller
 
         $user->delete();
 
-        return redirect()->route('admin.users.index')->with('success', 'Akun pegawai ' . $user->name . ' berhasil dihapus.');
+        return redirect()->route('admin_app.users.index')->with('success', 'Akun pegawai ' . $user->name . ' berhasil dihapus.');
     }
 }

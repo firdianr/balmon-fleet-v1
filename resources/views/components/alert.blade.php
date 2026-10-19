@@ -15,7 +15,22 @@
         </div>
     @endif
 
-    {{-- 2. ALERT ERROR / GAGAL (SESI) --}}
+    {{-- 2. ALERT WARNING / PERINGATAN (KUNING) --}}
+    @if (session('warning'))
+        <div class="bg-amber-100 border border-amber-300 text-amber-900 px-5 py-3.5 rounded-lg text-sm flex items-center justify-between shadow-sm mb-4" 
+             x-data="{ show: true }" 
+             x-show="show">
+            <div class="flex items-center">
+                <svg class="text-amber-600 w-5 h-5 mr-3 flex-shrink-0" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M12 2L1 21h22L12 2zm1 14h-2v-2h2v2zm0-4h-2V8h2v4z"></path>
+                </svg>
+                <span class="font-medium">{{ session('warning') }}</span>
+            </div>
+            <button @click="show = false" class="text-amber-700 hover:text-amber-950 ml-4 font-bold text-lg leading-none">&times;</button>
+        </div>
+    @endif
+
+    {{-- 3. ALERT ERROR / GAGAL (SESI) --}}
     @if (session('error'))
         <div class="bg-rose-100 border border-rose-300 text-rose-800 px-5 py-3.5 rounded-lg text-sm flex items-center justify-between shadow-sm mb-4" 
              x-data="{ show: true }" 
@@ -30,7 +45,7 @@
         </div>
     @endif
 
-    {{-- 3. ALERT VALIDASI FORM ERROR --}}
+    {{-- 4. ALERT VALIDASI FORM ERROR --}}
     @if ($errors->any())
         <div class="bg-rose-100 border border-rose-300 text-rose-800 px-5 py-3.5 rounded-lg text-sm shadow-sm mb-4" 
              x-data="{ show: true }" 

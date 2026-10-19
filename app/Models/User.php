@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 
-#[Fillable(['name', 'slug', 'email', 'nip', 'password', 'role', 'phone', 'department'])]
+#[Fillable(['name', 'slug', 'email', 'nip', 'password', 'role', 'phone', 'pangkat', 'jabatan', 'department'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -32,23 +32,77 @@ class User extends Authenticatable
         ];
     }
 
-    // Helper untuk mengecek role admin
-    public function isAdmin(): bool
+    // ==========================================
+    // HELPER METHODS UNTUK ROLE-BASED ACCESS CONTROL (RBAC)
+    // ==========================================
+
+    /**
+     * Cek apakah user adalah Admin Aplikasi (Pengelola User & Kendaraan)
+     */
+    public function isAdminApp(): bool
     {
-        return $this->role === 'admin';
+        return $this->role === 'admin_app';
     }
 
-    // Relasi ke tabel Bookings (Sebagai peminjam)
+    /**
+     * Cek apakah user adalah Admin Lapangan (Pengatur Perjalanan & Armada)
+     */
+    public function isAdminLap(): bool
+    {
+        return $this->role === 'admin_lap';
+    }
+
+    /**
+     * Cek apakah user adalah Approver (Kepala Kantor)
+     */
+    public function isApprover(): bool
+    {
+        return $this->role === 'approver';
+    }
+
+    /**
+     * Cek apakah user adalah Driver/Pengemudi Armada
+     */
+    public function isDriver(): bool
+    {
+        return $this->role === 'driver';
+    }
+
+    /**
+     * Cek apakah user adalah Pegawai
+     */
+    public function isPegawai(): bool
+    {
+        return $this->role === 'pegawai';
+    }
+
+    /**
+     * Helper umum jika ingin mengecek apakah user memiliki hak administratif (App / Lap)
+     */
+    public function isAdmin(): bool
+    {
+        return in_array($this->role, ['admin_app', 'admin_lap']);
+    }
+
+    // ==========================================
+    // RELASI DATABASE
+    // ==========================================
+
+    // Relasi ke tabel Bookings (Sebagai peminjam/pemohon)
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'user_id');
     }
 
-    // Relasi ke tabel Bookings (Sebagai admin approver)
+    // Relasi ke tabel Bookings (Sebagai penyetuju/approver)
     public function approvedBookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'approved_by');
     }
+
+    // ==========================================
+    // SLUG & ROUTE KEY LOGIC
+    // ==========================================
 
     private static function generateUniqueSlug(string $name, $ignoreId = null): string
     {

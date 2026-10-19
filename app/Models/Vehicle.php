@@ -16,6 +16,8 @@ class Vehicle extends Model
         'slug',
         'brand',
         'model',
+        'code',
+        'type',
         'capacity',
         'fuel_type',
         'status',
@@ -26,11 +28,13 @@ class Vehicle extends Model
     protected static function booted(): void
     {
         static::creating(function ($vehicle) {
-            $vehicle->slug = Str::slug($vehicle->plate_number);
+            $vehicle->slug = Str::slug($vehicle->brand . '-' . $vehicle->model . '-' . $vehicle->plate_number);
         });
 
         static::updating(function ($vehicle) {
-            $vehicle->slug = Str::slug($vehicle->plate_number);
+            if ($vehicle->isDirty(['brand', 'model', 'plate_number'])) {
+                $vehicle->slug = Str::slug($vehicle->brand . '-' . $vehicle->model . '-' . $vehicle->plate_number);
+            }
         });
     }
 
