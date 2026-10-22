@@ -294,14 +294,18 @@
 
         {{-- MODAL DETAIL PEMINJAMAN --}}
         <div x-show="showDetailModal" 
-             class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" 
-             x-cloak>
-            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden" @click.away="showDetailModal = false">
+            class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" 
+            x-cloak>
+            {{-- Tambahkan .stop pada @click.away --}}
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden" 
+                @click.away.stop="showDetailModal = false">
+                
                 <div class="bg-gray-900 px-6 py-4 text-white flex justify-between items-center">
                     <h3 class="font-bold text-base flex items-center gap-2">
                         <span>📋</span> Detail Peminjaman Armada
                     </h3>
-                    <button type="button" @click="showDetailModal = false" class="text-white/80 hover:text-white text-2xl font-bold">&times;</button>
+                    {{-- Tambahkan .stop pada tombol x --}}
+                    <button type="button" @click.stop="showDetailModal = false" class="text-white/80 hover:text-white text-2xl font-bold">&times;</button>
                 </div>
 
                 <template x-if="selectedBookingDetail">
@@ -357,7 +361,7 @@
                         </div>
 
                         <div class="pt-4">
-                            <button type="button" @click="showDetailModal = false" class="w-full py-2 bg-gray-100 text-gray-700 font-bold text-xs rounded-lg hover:bg-gray-200">
+                            <button type="button" @click.stop="showDetailModal = false" class="w-full py-2 bg-gray-100 text-gray-700 font-bold text-xs rounded-lg hover:bg-gray-200">
                                 Tutup
                             </button>
                         </div>

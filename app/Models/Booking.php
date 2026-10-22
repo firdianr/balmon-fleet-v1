@@ -15,7 +15,9 @@ class Booking extends Model
     protected $fillable = [
         'letter_number',
         'letter_slug',
-        'bast',
+        'letter_file',
+        'bast_peminjaman',
+        'bast_pengembalian',
         'user_id',
         'vehicle_id',
         'vehicle_type',
@@ -25,16 +27,18 @@ class Booking extends Model
         'end_date',
         'destination',
         'purpose',
-        'letter_file',
         'participants',
         'status',
         'admin_note',
+        // Audit trail / Tahapan Workflow
+        'allocated_by',
+        'allocated_at',
         'approved_by',
         'approved_at',
-        'departed_confirmed_by',
-        'departed_at',
-        'returned_confirmed_by',
-        'returned_at',
+        'returned_checked_by',
+        'returned_checked_at',
+        'returned_approved_by',
+        'returned_approved_at',
     ];
 
     protected static function booted(): void
@@ -55,12 +59,13 @@ class Booking extends Model
     protected function casts(): array
     {
         return [
-            'start_date'   => 'datetime',
-            'end_date'     => 'datetime',
-            'participants' => 'array',
-            'approved_at'  => 'datetime',
-            'departed_at'  => 'datetime',
-            'returned_at'  => 'datetime',
+            'start_date'           => 'datetime',
+            'end_date'             => 'datetime',
+            'participants'         => 'array',
+            'allocated_at'         => 'datetime',
+            'approved_at'          => 'datetime',
+            'returned_checked_at'  => 'datetime',
+            'returned_approved_at' => 'datetime',
         ];
     }
 
@@ -68,6 +73,8 @@ class Booking extends Model
     {
         return 'letter_slug';
     }
+
+    // --- RELASI UTAMA ---
 
     public function user(): BelongsTo
     {
@@ -79,28 +86,47 @@ class Booking extends Model
         return $this->belongsTo(Vehicle::class, 'vehicle_id');
     }
 
-    public function driver()
+    public function driver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'driver_id');
-    }
-
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
-
-    public function departureConfirmer(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'departed_confirmed_by');
-    }
-
-    public function returnApprover(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'returned_confirmed_by');
     }
 
     public function log(): HasOne
     {
         return $this->hasOne(VehicleLog::class, 'booking_id');
+    }
+
+    // --- RELASI AUDIT TRAIL / WAKTU PERSETUJUAN ---
+
+    /**
+     * Admin Sarpras / Pengelola yang melakukan alokasi armada & driver
+     */
+    public function allocator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'allocated_by');
+    }
+
+    /**
+     * Atasan / Pejabat yang menyetujui permohonan peminjaman
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * Admin yang melakukan pengecekan fisik kendaraan saat dikembalikan
+     */
+    public function returnChecker(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'returned_checked_by');
+    }
+
+    /**
+     * Atasan / Pejabat yang menyetujui akhir BAST pengembalian
+     */
+    public function returnApprover(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'returned_approved_by');
     }
 }

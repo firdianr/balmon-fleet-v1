@@ -68,8 +68,8 @@ class DatabaseSeeder extends Seeder
         ]);
 
         User::create([
-            'name'       => 'Budi Driver',
-            'slug'       => 'budi-driver',
+            'name'       => 'Andi Driver',
+            'slug'       => 'andi-driver',
             'email'      => 'driver@balmon.go.id',
             'nip'        => '199507202018021004',
             'password'   => Hash::make('password123'),

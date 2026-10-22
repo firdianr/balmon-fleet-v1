@@ -443,15 +443,15 @@
                                 <label class="text-xs font-bold text-gray-800 block">Cetak Dokumen & Berita Acara (BAST):</label>
                                 
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                    {{-- 1. FORMULIR PERMOHONAN PEMINJAMAN --}}
+                                    {{-- 1. FORMULIR PERMOHONAN PEMINJAMAN (SELALU AKTIF) --}}
                                     <a href="{{ route('bookings.pdf.permohonan', $booking->letter_slug) }}" target="_blank"
                                     class="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-indigo-50 hover:text-indigo-700 text-gray-700 font-bold rounded-xl border border-gray-200 transition">
                                         <span>📄</span>
                                         <span>Formulir Peminjaman</span>
                                     </a>
 
-                                    {{-- 2. BAST PEMINJAMAN (AKTIF JIKA APPROVED, ON_TRIP, COMPLETED) --}}
-                                    @if(in_array($booking->status, ['approved', 'on_trip', 'completed']))
+                                    {{-- 2. BAST PEMINJAMAN (AKTIF SEJAK STATUS WAITING KE ATAS) --}}
+                                    @if(in_array($booking->status, ['waiting', 'approved', 'on_trip', 'returned', 'checked', 'completed']))
                                         <a href="{{ route('bookings.pdf.bast_peminjaman', $booking->letter_slug) }}" target="_blank" 
                                         class="flex items-center gap-2 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-xl border border-emerald-200 transition">
                                             <span>🔑</span>
@@ -464,8 +464,8 @@
                                         </button>
                                     @endif
 
-                                    {{-- 3. FORMULIR PENGEMBALIAN (AKTIF JIKA COMPLETED) --}}
-                                    @if($booking->status === 'completed')
+                                    {{-- 3. FORMULIR PENGEMBALIAN (AKTIF SEJAK STATUS RETURNED KE ATAS) --}}
+                                    @if(in_array($booking->status, ['returned', 'checked', 'completed']))
                                         <a href="{{ route('bookings.pdf.formulir_pengembalian', $booking->letter_slug) }}" target="_blank" 
                                         class="flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold rounded-xl border border-indigo-200 transition">
                                             <span>📝</span>
@@ -478,8 +478,8 @@
                                         </button>
                                     @endif
 
-                                    {{-- 4. BAST PENGEMBALIAN (AKTIF JIKA COMPLETED) --}}
-                                    @if($booking->status === 'completed')
+                                    {{-- 4. BAST PENGEMBALIAN (AKTIF SEJAK STATUS RETURNED KE ATAS) --}}
+                                    @if(in_array($booking->status, ['returned', 'checked', 'completed']))
                                         <a href="{{ route('bookings.pdf.bast_pengembalian', $booking->letter_slug) }}" target="_blank" 
                                         class="flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-xl border border-blue-200 transition">
                                             <span>📋</span>

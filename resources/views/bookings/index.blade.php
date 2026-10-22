@@ -15,7 +15,7 @@
             activeBooking: null,
             isLoading: false,
 
-            {{-- MODAL REVIEW --}}
+            {{-- MODAL REVIEW (ADMIN LAPANGAN: ALOKASI ARMADA & DRIVER) --}}
             vehicles: {{ Illuminate\Support\Js::from($availableVehicles) }},
             drivers: {{ Illuminate\Support\Js::from($availableDrivers) }},
             activeBookings: {{ Illuminate\Support\Js::from($activeBookings) }},
@@ -36,16 +36,13 @@
                 const currentBookingId = this.selectedBooking.id;
 
                 return this.vehicles.filter(vehicle => {
-                    // Cek apakah kendaraan ini dipakai di booking lain yang bentrok
                     const isConflict = this.activeBookings.some(active => {
-                        // Abaikan booking yang sedang di-review ini (khusus kasus Re-assign)
                         if (active.id === currentBookingId) return false;
                         if (active.vehicle_id !== vehicle.id) return false;
 
                         const actStart = new Date(active.start_date);
                         const actEnd   = new Date(active.end_date);
 
-                        // Logika Overlap Jadwal
                         return (reqStart <= actEnd && reqEnd >= actStart);
                     });
 
@@ -61,8 +58,10 @@
                 const reqEnd   = new Date(this.selectedBooking.end_date);
                 const currentBookingId = this.selectedBooking.id;
 
-                return this.drivers.filter(driver => {
-                    const isConflict = this.activeBookings.some(active => {
+                const freeDrivers = this.drivers.filter(driver => {
+                    if (driver.role !== 'driver') return false;
+
+                    return !this.activeBookings.some(active => {
                         if (active.id === currentBookingId) return false;
                         if (active.driver_id !== driver.id) return false;
 
@@ -71,17 +70,50 @@
 
                         return (reqStart <= actEnd && reqEnd >= actStart);
                     });
-
-                    return !isConflict;
                 });
+                const participantsList = this.selectedBooking.participants_users || [];
+                return {
+                    primaryDrivers: freeDrivers,
+                    participants: participantsList
+                };
             },
             openReviewModal(booking) {
                 this.selectedBooking = booking;
+                if (booking.participants && Array.isArray(booking.participants)) {
+                    this.selectedBooking.participants_users = this.drivers.filter(d => 
+                        booking.participants.includes(d.id) || booking.participants.includes(String(d.id))
+                    );
+                } else {
+                    this.selectedBooking.participants_users = [];
+                }
                 this.reviewForm.action = 'approve';
                 this.reviewForm.vehicle_id = booking.vehicle_id || '';
                 this.reviewForm.driver_id = booking.driver_id || '';
                 this.reviewForm.admin_note = booking.admin_note || '';
                 this.showReviewModal = true;
+            },
+
+            {{-- STATE MODAL APPROVER (STATUS: WAITING & CHECKED) --}}
+            showApproverModal: false,
+            approverActionType: '', // 'waiting' atau 'checked'
+            approverForm: {
+                action: 'approve',
+                admin_note: ''
+            },
+
+            openApproverModal(booking, type) {
+                this.selectedBooking = booking;
+                this.approverActionType = type;
+                this.approverForm.action = 'approve';
+                this.approverForm.admin_note = '';
+                this.showApproverModal = true;
+            },
+
+            {{-- STATE MODAL VERIFY RETURN (ADMIN LAPANGAN: TAHAP 4B) --}}
+            showVerifyReturnModal: false,
+            openVerifyReturnModal(booking) {
+                this.selectedBooking = booking;
+                this.showVerifyReturnModal = true;
             },
 
             {{-- MODAL DETAIL ROUTE --}}
@@ -120,7 +152,7 @@
                 this.showStartTripModal = true;
             },
 
-            {{-- STATE MODAL COMPLETE TRIP --}}
+            {{-- STATE MODAL COMPLETE TRIP (DRIVER) --}}
             showCompleteModal: false,
             completeTripForm: {
                 letter_slug: '',
@@ -131,7 +163,6 @@
             },
             openCompleteModal(booking) {
                 this.completeTripForm.letter_slug = booking.letter_slug;
-                // Ambil start_km dari log kendaraan yang sedang berjalan
                 this.completeTripForm.start_km = booking.log?.start_km || booking.vehicle?.last_km || 0;
                 this.completeTripForm.end_km = '';
                 this.completeTripForm.end_fuel_level = 'Full';
@@ -139,33 +170,33 @@
                 this.showCompleteModal = true;
             },
 
-            // STATE MODAL BATAL PENGAJUAN (PEMOHON)
-        showCancelBookingModal: false,
-        cancelBookingForm: {
-            letter_slug: '',
-            letter_number: ''
-        },
-        openCancelBookingModal(booking) {
-            this.cancelBookingForm.letter_slug = booking.letter_slug;
-            this.cancelBookingForm.letter_number = booking.letter_number;
-            this.showCancelBookingModal = true;
-        },
+            {{-- STATE MODAL BATAL PENGAJUAN (PEMOHON) --}}
+            showCancelBookingModal: false,
+            cancelBookingForm: {
+                letter_slug: '',
+                letter_number: ''
+            },
+            openCancelBookingModal(booking) {
+                this.cancelBookingForm.letter_slug = booking.letter_slug;
+                this.cancelBookingForm.letter_number = booking.letter_number;
+                this.showCancelBookingModal = true;
+            },
 
-        // STATE MODAL BATAL PERSETUJUAN (ADMIN)
-        showCancelApprovalModal: false,
-        cancelApprovalForm: {
-            letter_slug: '',
-            letter_number: '',
-            vehicle_name: '',
-            cancel_reason: ''
-        },
-        openCancelApprovalModal(booking) {
-            this.cancelApprovalForm.letter_slug = booking.letter_slug;
-            this.cancelApprovalForm.letter_number = booking.letter_number;
-            this.cancelApprovalForm.vehicle_name = booking.vehicle ? `${booking.vehicle.brand} ${booking.vehicle.model} (${booking.vehicle.plate_number})` : 'Armada Operasional';
-            this.cancelApprovalForm.cancel_reason = '';
-            this.showCancelApprovalModal = true;
-        },
+            {{-- STATE MODAL BATAL PERSETUJUAN (ADMIN) --}}
+            showCancelApprovalModal: false,
+            cancelApprovalForm: {
+                letter_slug: '',
+                letter_number: '',
+                vehicle_name: '',
+                cancel_reason: ''
+            },
+            openCancelApprovalModal(booking) {
+                this.cancelApprovalForm.letter_slug = booking.letter_slug;
+                this.cancelApprovalForm.letter_number = booking.letter_number;
+                this.cancelApprovalForm.vehicle_name = booking.vehicle ? `${booking.vehicle.brand} ${booking.vehicle.model} (${booking.vehicle.plate_number})` : 'Armada Operasional';
+                this.cancelApprovalForm.cancel_reason = '';
+                this.showCancelApprovalModal = true;
+            },
 
             formatDate(dateString) {
                 if (!dateString) return '-';
@@ -190,7 +221,7 @@
                     .catch(() => { this.isLoading = false; });
             }
         }"
-        x-init="$watch('search', value => fetchBookings()); $watch('sort', value => fetchBookings())">
+        x-init="$watch('search', value => fetchBookings());$watch('sort', value => fetchBookings())">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 
@@ -245,7 +276,7 @@
                                 <th class="p-3">Status</th>
                                 <th class="p-3">Jarak Tempuh</th>
                                 <th class="p-3 text-center">Aksi Operasional</th>
-                                <th class="p-3 w-10 text-center"></th> {{-- Kolom Titik 3 Tanpa Header --}}
+                                <th class="p-3 w-10 text-center"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 text-sm">
@@ -261,10 +292,8 @@
                                     
                                     {{-- MOBIL --}}
                                     <td class="p-3 font-medium">
-                                        {{-- Nama dan Plat Nomor Kendaraan --}}
                                         <div x-text="booking.vehicle ? `${booking.vehicle.brand} ${booking.vehicle.model} (${booking.vehicle.plate_number})` : '-'"></div>
 
-                                        {{-- Penanda Warning khusus jika Armada Maintenance & Perlu Ganti --}}
                                         <template x-if="booking.needs_reassign">
                                             <div class="mt-1">
                                                 <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-md bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
@@ -285,17 +314,19 @@
                                     
                                     {{-- STATUS BADGE --}}
                                     <td class="p-3">
-                                        <span class="px-2.5 py-1 text-xs font-bold rounded-full"
+                                        <span class="px-2.5 py-1 text-xs font-bold rounded-full whitespace-nowrap"
                                             :class="{
                                                 'bg-yellow-100 text-yellow-800': booking.status === 'pending',
+                                                'bg-amber-100 text-amber-800': booking.status === 'waiting',
                                                 'bg-blue-100 text-blue-800': booking.status === 'approved',
                                                 'bg-purple-100 text-purple-800': booking.status === 'on_trip',
-                                                'bg-amber-100 text-amber-800': booking.status === 'unconfirmed',
-                                                'bg-green-100 text-green-800': booking.status === 'completed',
+                                                'bg-indigo-100 text-indigo-800': booking.status === 'returned',
+                                                'bg-cyan-100 text-cyan-800': booking.status === 'checked',
+                                                'bg-emerald-100 text-emerald-800': booking.status === 'completed',
                                                 'bg-gray-200 text-gray-700': booking.status === 'canceled',
-                                                'bg-red-100 text-red-800': booking.status === 'rejected'
+                                                'bg-rose-100 text-rose-800': booking.status === 'rejected'
                                             }"
-                                            x-text="booking.status.toUpperCase()">
+                                            x-text="booking.status.replace('_', ' ').toUpperCase()">
                                         </span>
                                     </td>
                                     
@@ -333,6 +364,10 @@
                                                         <span>🏁 Selesaikan Tugas</span>
                                                     </button>
                                                 </template>
+
+                                                <template x-if="['pending', 'waiting', 'returned', 'checked', 'rejected', 'canceled', 'completed'].includes(booking.status)">
+                                                    <span class="text-xs text-gray-400 font-medium italic">Tidak Ada Aksi</span>
+                                                </template>
                                             @endif
 
                                             {{-- B. AKSI KHUSUS ADMIN LAPANGAN & ADMIN APLIKASI --}}
@@ -347,30 +382,44 @@
                                                     </button>
                                                 </template>
 
-                                                {{-- STATUS APPROVED: Tanpa tombol utama (Aksi dialihkan ke dropdown) --}}
-                                                <template x-if="booking.status === 'approved'">
-                                                    <span class="text-xs text-gray-400 font-medium italic">(Siap Berangkat)</span>
+                                                {{-- STATUS WAITING & APPROVED --}}
+                                                <template x-if="['waiting', 'approved'].includes(booking.status)">
+                                                    <span class="text-xs text-gray-400 font-medium italic">(Menunggu Keberangkatan)</span>
                                                 </template>
 
-                                                {{-- STATUS ON_TRIP: Selesaikan Perjalanan & Input BAST --}}
+                                                {{-- STATUS ON_TRIP --}}
                                                 <template x-if="booking.status === 'on_trip'">
+                                                    <span class="text-xs text-purple-600 font-medium italic">🚗 Dalam Perjalanan</span>
+                                                </template>
+
+                                                {{-- TAHAP 4B: STATUS RETURNED -> Admin Lapangan Meninjau Kepulangan --}}
+                                                <template x-if="booking.status === 'returned'">
                                                     <button type="button" 
-                                                            @click="openCompleteModal(booking)"
-                                                            class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-xs transition flex items-center gap-1">
-                                                        <span>🏁 Selesaikan & BAST</span>
+                                                            @click="openVerifyReturnModal(booking)"
+                                                            class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-xs shadow-xs transition flex items-center gap-1">
+                                                        <span>🔍 Tinjau Kepulangan Fisik</span>
                                                     </button>
                                                 </template>
 
-                                                {{-- STATUS RIWAYAT --}}
-                                                <template x-if="['completed', 'rejected', 'canceled'].includes(booking.status)">
+                                                <template x-if="booking.status === 'checked'">
+                                                    <span class="text-xs text-cyan-700 font-medium italic">(Menunggu Pengesahan Approver)</span>
+                                                </template>
+
+                                                <template x-if="['rejected', 'completed', 'canceled'].includes(booking.status)">
                                                     <span class="text-xs text-gray-400 font-medium italic">Selesai / Terarsip</span>
                                                 </template>
 
                                             {{-- C. TAMPILAN LABEL STATUS UNTUK PEGAWAI / NON-ADMIN --}}
-                                            @elseif(Auth::user()->role !== 'driver')
+                                            @elseif(!in_array(Auth::user()->role, ['driver', 'approver']))
                                                 <template x-if="booking.status === 'pending'">
                                                     <span class="text-xs text-amber-600 font-semibold flex items-center justify-center gap-1">
-                                                        <span>⏳</span> Menunggu Persetujuan
+                                                        <span>⏳</span> Menunggu Alokasi
+                                                    </span>
+                                                </template>
+
+                                                <template x-if="booking.status === 'waiting'">
+                                                    <span class="text-xs text-indigo-600 font-bold flex items-center justify-center gap-1">
+                                                        <span>📋</span> Menunggu Persetujuan Atasan
                                                     </span>
                                                 </template>
 
@@ -386,9 +435,64 @@
                                                     </span>
                                                 </template>
 
-                                                <template x-if="['completed', 'rejected', 'canceled'].includes(booking.status)">
+                                                <template x-if="booking.status === 'returned'">
+                                                    <span class="text-xs text-indigo-600 font-bold flex items-center justify-center gap-1">
+                                                        <span>🔄</span> Menunggu Pemeriksaan Admin
+                                                    </span>
+                                                </template>
+
+                                                <template x-if="booking.status === 'checked'">
+                                                    <span class="text-xs text-cyan-600 font-bold flex items-center justify-center gap-1">
+                                                        <span>🏁</span> Menunggu Pengesahan BAST
+                                                    </span>
+                                                </template>
+
+                                                <template x-if="booking.status === 'rejected'">
+                                                    <div class="inline-flex items-center gap-2">
+                                                        <span class="text-xs text-red-600 font-medium px-2 py-0.5 bg-red-50 rounded border border-red-200">
+                                                            Ditolak
+                                                        </span>
+                                                        <a :href="`/bookings/${booking.letter_slug}/edit`" 
+                                                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-300 hover:bg-amber-100 rounded-md transition-colors"
+                                                        title="Perbaiki Permohonan">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                            </svg>
+                                                            <span>Perbaiki</span>
+                                                        </a>
+                                                    </div>
+                                                </template>
+
+                                                <template x-if="['completed', 'canceled'].includes(booking.status)">
                                                     <span class="text-xs text-gray-400 font-medium">- Tidak ada aksi-</span>
                                                 </template>
+                                            @endif
+
+                                            {{-- D. AKSI KHUSUS APPROVER (ATASAN / KEPALA BAGIAN) --}}
+                                            @if(Auth::user()->role === 'approver')
+
+                                                {{-- STATUS WAITING: Menunggu Persetujuan Permohonan & Serah Terima --}}
+                                                <template x-if="booking.status === 'waiting'">
+                                                    <button type="button" 
+                                                            @click="openApproverModal(booking, 'waiting')"
+                                                            class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs shadow-xs transition flex items-center gap-1">
+                                                        <span>📋 Tinjau & Setujui Permohonan</span>
+                                                    </button>
+                                                </template>
+
+                                                {{-- STATUS CHECKED: Menunggu Persetujuan Akhir Pengembalian --}}
+                                                <template x-if="booking.status === 'checked'">
+                                                    <button type="button" 
+                                                            @click="openApproverModal(booking, 'checked')"
+                                                            class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-xs transition flex items-center gap-1">
+                                                        <span>📋 Tinjau & Setujui Pengembalian</span>
+                                                    </button>
+                                                </template>
+
+                                                <template x-if="!['waiting', 'checked'].includes(booking.status)">
+                                                    <span class="text-xs text-gray-400 font-medium italic">Tidak Ada Aksi</span>
+                                                </template>
+
                                             @endif
 
                                         </div>
@@ -420,11 +524,8 @@
                                                 $userId   = Auth::id();
                                             @endphp
 
-                                            {{-- ========================================== --}}
                                             {{-- 1. AKSI UNTUK DRIVER --}}
-                                            {{-- ========================================== --}}
                                             @if($userRole === 'driver')
-                                                {{-- Aksi: Detail Rute (Hanya jika booking milik driver ini dan status approved/on_trip) --}}
                                                 <template x-if="booking.driver_id === {{ $userId }} && ['approved', 'on_trip'].includes(booking.status)">
                                                     <button type="button" @click="openRouteDetailModal(booking); open = false;" 
                                                             class="w-full flex items-center gap-2 px-4 py-2 text-indigo-600 hover:bg-indigo-50 font-medium transition text-left">
@@ -432,7 +533,6 @@
                                                     </button>
                                                 </template>
 
-                                                {{-- Pesan Tidak Ada Aksi untuk Driver --}}
                                                 <template x-if="booking.driver_id !== {{ $userId }} || !['approved', 'on_trip'].includes(booking.status)">
                                                     <div class="px-4 py-2 text-center text-gray-400 font-medium italic text-[11px] flex items-center justify-center gap-1.5">
                                                         <span>🚫</span> Tidak Ada Aksi
@@ -440,12 +540,8 @@
                                                 </template>
                                             @endif
 
-
-                                            {{-- ========================================== --}}
                                             {{-- 2. AKSI UNTUK PEGAWAI / PEMOHON UTAMA --}}
-                                            {{-- ========================================== --}}
-                                            @if(!in_array($userRole, ['admin_lap', 'admin_app', 'driver']))
-                                                {{-- Aksi: Edit & Batalkan Pengajuan (Status Pending) --}}
+                                            @if(!in_array($userRole, ['admin_lap', 'admin_app', 'driver', 'approver']))
                                                 <template x-if="booking.user_id === {{ $userId }} && booking.status === 'pending'">
                                                     <div class="space-y-0.5">
                                                         <a :href="`/bookings/${booking.letter_slug}/edit`" 
@@ -459,28 +555,22 @@
                                                     </div>
                                                 </template>
 
-                                                {{-- Aksi: Batalkan Pengajuan Saja (Status Approved) --}}
-                                                <template x-if="booking.user_id === {{ $userId }} && booking.status === 'approved'">
+                                                <template x-if="booking.user_id === {{ $userId }} && ['waiting', 'approved'].includes(booking.status)">
                                                     <button type="button" @click="openCancelBookingModal(booking); open = false;" 
                                                             class="w-full flex items-center gap-2 px-4 py-2 text-amber-600 hover:bg-amber-50 font-bold transition text-left">
                                                         <span>🚫</span> Batalkan Pengajuan
                                                     </button>
                                                 </template>
 
-                                                {{-- Pesan Tidak Ada Aksi untuk Pegawai --}}
-                                                <template x-if="booking.user_id !== {{ $userId }} || !['pending', 'approved'].includes(booking.status)">
+                                                <template x-if="booking.user_id !== {{ $userId }} || !['pending', 'waiting', 'approved'].includes(booking.status)">
                                                     <div class="px-4 py-2 text-center text-gray-400 font-medium italic text-[11px] flex items-center justify-center gap-1.5">
                                                         <span>🚫</span> Tidak Ada Aksi
                                                     </div>
                                                 </template>
                                             @endif
 
-
-                                            {{-- ========================================== --}}
                                             {{-- 3. AKSI UNTUK ADMIN (ADMIN LAPANGAN & ADMIN APP) --}}
-                                            {{-- ========================================== --}}
                                             @if(in_array($userRole, ['admin_lap', 'admin_app']))
-                                                {{-- Aksi Admin pada Status Pending (Edit & Tolak) --}}
                                                 <template x-if="booking.status === 'pending'">
                                                     <div class="space-y-0.5">
                                                         <a :href="`/bookings/${booking.letter_slug}/edit`" 
@@ -494,8 +584,7 @@
                                                     </div>
                                                 </template>
 
-                                                {{-- Aksi Admin pada Status Approved (Re-assign & Batal Persetujuan) --}}
-                                                <template x-if="booking.status === 'approved'">
+                                                <template x-if="['waiting'].includes(booking.status)">
                                                     <div class="space-y-0.5">
                                                         <button type="button" @click="openReviewModal(booking); open = false;" 
                                                                 class="w-full flex items-center gap-2 px-4 py-2 text-indigo-600 hover:bg-indigo-50 font-medium transition text-left">
@@ -508,8 +597,7 @@
                                                     </div>
                                                 </template>
 
-                                                {{-- Pesan Tidak Ada Aksi untuk Admin (pada Status on_trip, completed, rejected, canceled) --}}
-                                                <template x-if="['on_trip', 'completed', 'rejected', 'canceled'].includes(booking.status)">
+                                                <template x-if="['approved', 'on_trip', 'returned', 'checked', 'completed', 'rejected', 'canceled'].includes(booking.status)">
                                                     <div class="px-4 py-2 text-center text-gray-400 font-medium italic text-[11px] flex items-center justify-center gap-1.5">
                                                         <span>🚫</span> Tidak Ada Aksi
                                                     </div>
@@ -531,7 +619,7 @@
             </div>
         </div>
 
-        {{-- MODAL PENINJAUAN & PLOTTING ARMADA --}}
+        {{-- MODAL PENINJAUAN & PLOTTING ARMADA (ADMIN LAPANGAN: TAHAP 1) --}}
         <div x-show="showReviewModal" 
             class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50"
             x-transition:enter="transition ease-out duration-200"
@@ -544,23 +632,20 @@
 
             <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-100" @click.away="showReviewModal = false">
                 
-                {{-- HEADER MODAL --}}
                 <div class="bg-indigo-600 px-6 py-4 text-white flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-base flex items-center gap-2">
-                            <span x-text="selectedBooking?.status === 'approved' ? '🔄 Re-Assign Armada & Driver' : '📋 Tinjau & Plot Armada'"></span>
+                            <span x-text="['waiting', 'approved'].includes(selectedBooking?.status) ? '🔄 Re-Assign Armada & Driver' : '📋 Alokasi Armada & Driver'"></span>
                         </h3>
                         <p class="text-xs text-indigo-100 font-mono mt-0.5" x-text="selectedBooking ? selectedBooking.letter_number : ''"></p>
                     </div>
                     <button type="button" @click="showReviewModal = false" class="text-white/80 hover:text-white text-2xl font-bold">&times;</button>
                 </div>
 
-                {{-- FORM PENINJAUAN --}}
                 <form :action="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/process-review` : '#'" method="POST" class="p-6 space-y-4">
                     @csrf
                     @method('PATCH')
 
-                    {{-- INFORMASI SINGKAT PERMOHONAN --}}
                     <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-xs space-y-1.5">
                         <div class="flex justify-between">
                             <span class="text-gray-500 font-medium">Pemohon:</span>
@@ -582,14 +667,13 @@
                         </template>
                     </div>
 
-                    {{-- PILIHAN KEPUTUSAN (TAB RADIO) --}}
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1.5">Keputusan Peninjauan <span class="text-red-500">*</span></label>
+                        <label class="block text-xs font-bold text-gray-700 mb-1.5">Keputusan Alokasi <span class="text-red-500">*</span></label>
                         <div class="grid grid-cols-2 gap-3">
                             <label class="cursor-pointer p-2.5 rounded-xl border text-center text-xs font-bold transition flex items-center justify-center gap-1.5"
                                 :class="reviewForm.action === 'approve' ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs' : 'border-gray-200 text-gray-600 hover:bg-gray-50'">
                                 <input type="radio" name="action" value="approve" x-model="reviewForm.action" class="hidden">
-                                <span>✅ Setujui & Plot</span>
+                                <span>✅ Setujui & Alokasi</span>
                             </label>
 
                             <label class="cursor-pointer p-2.5 rounded-xl border text-center text-xs font-bold transition flex items-center justify-center gap-1.5"
@@ -600,9 +684,7 @@
                         </div>
                     </div>
 
-                    {{-- INPUT UNTUK SETUJUI (APPROVE) --}}
                     <div x-show="reviewForm.action === 'approve'" class="space-y-3.5 pt-1">
-                        {{-- PILIH UNIT ARMADA --}}
                         <div>
                             <label class="block text-xs font-bold text-gray-700 mb-1">
                                 Pilih Unit Armada Kendaraan <span class="text-red-500">*</span>
@@ -615,7 +697,6 @@
                                 </template>
                             </select>
                             
-                            {{-- Peringatan Jika Tidak Ada Armada Kosong pada Jadwal Tersebut --}}
                             <template x-if="getAvailableVehicles().length === 0">
                                 <p class="text-[11px] text-rose-600 font-bold mt-1.5 flex items-center gap-1">
                                     <span>⚠️</span> Seluruh armada telah terpakai / bentrok pada rentang jadwal ini.
@@ -623,29 +704,37 @@
                             </template>
                         </div>
 
-                        {{-- PILIH DRIVER / PENGEMUDI --}}
                         <div>
                             <label class="block text-xs font-bold text-gray-700 mb-1">
-                                Penunjukan Driver / Pengemudi <span class="text-gray-400 font-normal">(Opsional)</span>
+                                Penunjukan Driver / Pengemudi <span class="text-rose-500">*</span>
                             </label>
-                            <select name="driver_id" x-model="reviewForm.driver_id"
+                            <select name="driver_id" x-model="reviewForm.driver_id" :required="reviewForm.action === 'approve'"
                                     class="block w-full rounded-xl border-gray-300 text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500">
-                                <option value="">-- Tanpa Driver / Lepas Kunci --</option>
-                                <template x-for="d in getAvailableDrivers()" :key="d.id">
-                                    <option :value="d.id" x-text="`👤 ${d.name} ${d.phone ? '(' + d.phone + ')' : ''}`"></option>
+                                <option value="">-- Pilih Pengemudi --</option>
+                                
+                                <optgroup label="Driver Utama / Resmi">
+                                    <template x-for="d in getAvailableDrivers().primaryDrivers" :key="d.id">
+                                        <option :value="d.id" x-text="`👤 ${d.name} ${d.phone ? '(' + d.phone + ')' : ''}`"></option>
+                                    </template>
+                                </optgroup>
+
+                                <template x-if="getAvailableDrivers().participants && getAvailableDrivers().participants.length > 0">
+                                    <optgroup label="Anggota Tim Permohonan Ini">
+                                        <template x-for="p in getAvailableDrivers().participants" :key="p.id">
+                                            <option :value="p.id" x-text="`👥 ${p.name} (Anggota Tim)`"></option>
+                                        </template>
+                                    </optgroup>
                                 </template>
                             </select>
 
-                            {{-- Peringatan Jika Tidak Ada Driver Kosong --}}
-                            <template x-if="getAvailableDrivers().length === 0">
+                            <template x-if="getAvailableDrivers().primaryDrivers.length === 0">
                                 <p class="text-[11px] text-amber-600 font-medium mt-1.5">
-                                    ℹ️ Seluruh driver sedang bertugas pada rentang jadwal ini (Hanya bisa Lepas Kunci).
+                                    ℹ️ Seluruh driver resmi sedang bertugas. Anda dapat menunjuk Anggota Tim di atas sebagai pengemudi.
                                 </p>
                             </template>
                         </div>
                     </div>
 
-                    {{-- CATATAN ADMIN / ALASAN PENOLAKAN --}}
                     <div>
                         <label class="block text-xs font-bold text-gray-700 mb-1">
                             <span x-text="reviewForm.action === 'reject' ? 'Alasan Penolakan' : 'Catatan Admin Lapangan'"></span>
@@ -657,7 +746,6 @@
                                 class="block w-full rounded-xl border-gray-300 text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500"></textarea>
                     </div>
 
-                    {{-- TOMBOL AKSI MODAL --}}
                     <div class="flex items-center gap-3 pt-3 border-t border-gray-100">
                         <button type="button" @click="showReviewModal = false" class="w-1/2 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-200 transition">
                             Batal
@@ -666,7 +754,205 @@
                         <button type="submit" 
                                 class="w-1/2 py-2.5 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5"
                                 :class="reviewForm.action === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'">
-                            <span x-text="reviewForm.action === 'approve' ? 'Simpan & Disetujui' : 'Konfirmasi Penolakan'"></span>
+                            <span x-text="reviewForm.action === 'approve' ? 'Simpan & Alokasikan' : 'Konfirmasi Penolakan'"></span>
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+
+        {{-- MODAL PENINJAUAN & PERSETUJUAN KHUSUS APPROVER (TAHAP 2 & 5) --}}
+        <div x-show="showApproverModal" 
+            class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+            x-cloak>
+
+            <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-100" @click.away="showApproverModal = false">
+                
+                <div class="px-6 py-4 text-white flex justify-between items-center"
+                    :class="approverActionType === 'waiting' ? 'bg-indigo-600' : 'bg-emerald-600'">
+                    <div>
+                        <h3 class="font-bold text-base flex items-center gap-2">
+                            <span x-text="approverActionType === 'waiting' ? '📋 Persetujuan Permohonan Peminjaman' : '🏁 Persetujuan Akhir BAST Pengembalian'"></span>
+                        </h3>
+                        <p class="text-xs opacity-90 font-mono mt-0.5" x-text="selectedBooking ? 'No. Surat: ' + selectedBooking.letter_number : ''"></p>
+                    </div>
+                    <button type="button" @click="showApproverModal = false" class="text-white/80 hover:text-white text-2xl font-bold">&times;</button>
+                </div>
+
+                <form :action="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/approver-review` : '#'" method="POST" class="p-6 space-y-4 text-xs">
+                    @csrf
+                    @method('PATCH')
+
+                    <input type="hidden" name="action" :value="approverForm.action">
+
+                    <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-1.5">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500 font-medium">Pemohon Utama:</span>
+                            <span class="font-bold text-gray-900" x-text="selectedBooking?.user?.name || '-'"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500 font-medium">Tujuan Dinas:</span>
+                            <span class="font-bold text-gray-900" x-text="selectedBooking?.destination || '-'"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500 font-medium">Unit Armada Alokasi:</span>
+                            <span class="font-bold text-indigo-700" x-text="selectedBooking?.vehicle ? `${selectedBooking.vehicle.brand} ${selectedBooking.vehicle.model} (${selectedBooking.vehicle.plate_number})` : '-'"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500 font-medium">Pengemudi Ditunjuk:</span>
+                            <span class="font-bold text-gray-900" x-text="selectedBooking?.driver ? selectedBooking.driver.name : '-'"></span>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
+                        <span class="text-[10px] font-bold text-blue-800 uppercase block tracking-wider">📄 Pratinjau Dokumen Cetak</span>
+                        
+                        <template x-if="approverActionType === 'waiting'">
+                            <div class="flex flex-wrap gap-2">
+                                <a :href="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/pdf/formulir-permohonan` : '#'" target="_blank"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-300 text-blue-700 hover:bg-blue-100 font-bold rounded-lg text-xs transition shadow-xs">
+                                    <span>📄 Lihat Formulir Permohonan</span>
+                                </a>
+                                <a :href="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/pdf/bast-peminjaman` : '#'" target="_blank"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition shadow-xs">
+                                    <span>📜 Lihat BAST Peminjaman</span>
+                                </a>
+                            </div>
+                        </template>
+
+                        <template x-if="approverActionType === 'checked'">
+                            <div class="flex flex-wrap gap-2">
+                                <a :href="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/pdf/formulir-pengembalian` : '#'" target="_blank"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-300 text-blue-700 hover:bg-blue-100 font-bold rounded-lg text-xs transition shadow-xs">
+                                    <span>📄 Lihat Formulir Pengembalian</span>
+                                </a>
+                                <a :href="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/pdf/bast-pengembalian` : '#'" target="_blank"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition shadow-xs">
+                                    <span>📜 Lihat BAST Pengembalian</span>
+                                </a>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1.5">Keputusan Persetujuan <span class="text-rose-500">*</span></label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="cursor-pointer p-2.5 rounded-xl border text-center text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                :class="approverForm.action === 'approve' ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs' : 'border-gray-200 text-gray-600 hover:bg-gray-50'">
+                                <input type="radio" name="action_option" value="approve" x-model="approverForm.action" class="hidden">
+                                <span>✅ Setujui Dokumen</span>
+                            </label>
+
+                            <label class="cursor-pointer p-2.5 rounded-xl border text-center text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                :class="approverForm.action === 'reject' ? 'bg-rose-50 border-rose-500 text-rose-700 shadow-xs' : 'border-gray-200 text-gray-600 hover:bg-gray-50'">
+                                <input type="radio" name="action_option" value="reject" x-model="approverForm.action" class="hidden">
+                                <span>❌ Tolak / Kembalikan</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">
+                            <span x-text="approverForm.action === 'reject' ? 'Alasan Penolakan' : 'Catatan Persetujuan (Opsional)'"></span>
+                            <span x-show="approverForm.action === 'reject'" class="text-rose-500">*</span>
+                        </label>
+                        <textarea name="admin_note" x-model="approverForm.admin_note" rows="2"
+                                :required="approverForm.action === 'reject'"
+                                :placeholder="approverForm.action === 'reject' ? 'Tuliskan alasan penolakan permohonan...' : 'Tuliskan catatan persetujuan jika ada...'"
+                                class="block w-full rounded-xl border-gray-300 text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+
+                    <div class="flex items-center gap-3 pt-3 border-t border-gray-100">
+                        <button type="button" @click="showApproverModal = false" class="w-1/2 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-200 transition">
+                            Batal
+                        </button>
+                        
+                        <button type="submit" 
+                                class="w-1/2 py-2.5 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5"
+                                :class="approverForm.action === 'approve' ? (approverActionType === 'waiting' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700') : 'bg-rose-600 hover:bg-rose-700'">
+                            <span x-text="approverForm.action === 'approve' ? 'Konfirmasi & Setujui' : 'Konfirmasi Penolakan'"></span>
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+
+        {{-- MODAL PENINJAUAN FISIK PENGEMBALIAN OLEH ADMIN LAPANGAN (TAHAP 4B) --}}
+        <div x-show="showVerifyReturnModal" 
+            class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+            x-cloak>
+
+            <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-100" @click.away="showVerifyReturnModal = false">
+                
+                <div class="bg-cyan-600 px-6 py-4 text-white flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-base flex items-center gap-2">
+                            <span>🔍</span> Pemeriksaan Fisik Kepulangan Kendaraan
+                        </h3>
+                        <p class="text-xs text-cyan-100 font-mono mt-0.5" x-text="selectedBooking ? 'No. Surat: ' + selectedBooking.letter_number : ''"></p>
+                    </div>
+                    <button type="button" @click="showVerifyReturnModal = false" class="text-white/80 hover:text-white text-2xl font-bold">&times;</button>
+                </div>
+
+                <form :action="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/verify-return` : '#'" method="POST" class="p-6 space-y-4 text-xs">
+                    @csrf
+                    @method('PATCH')
+
+                    <div class="bg-cyan-50/60 p-4 rounded-xl border border-cyan-200 space-y-2">
+                        <span class="text-[10px] font-bold text-cyan-800 uppercase tracking-wider block">Ringkasan Log Pengembalian Driver</span>
+                        
+                        <div class="grid grid-cols-2 gap-3 pt-1 text-gray-800">
+                            <div>
+                                <span class="text-[10px] text-gray-500 block">Odometer Awal:</span>
+                                <p class="font-bold" x-text="(selectedBooking?.log?.start_km || 0) + ' KM'"></p>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-gray-500 block">Odometer Akhir:</span>
+                                <p class="font-bold text-indigo-700" x-text="(selectedBooking?.log?.end_km || 0) + ' KM'"></p>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-gray-500 block">BBM Akhir:</span>
+                                <p class="font-bold" x-text="selectedBooking?.log?.end_fuel_level || '-'"></p>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-gray-500 block">Total Jarak Tempuh:</span>
+                                <p class="font-bold text-emerald-600" x-text="(selectedBooking?.log?.distance_traveled || 0) + ' KM'"></p>
+                            </div>
+                        </div>
+
+                        <template x-if="selectedBooking?.log?.condition_notes">
+                            <div class="pt-2 border-t border-cyan-200">
+                                <span class="text-[10px] text-rose-700 font-bold block">⚠️ Catatan Kondisi / Insiden:</span>
+                                <p class="text-rose-950 italic" x-text="selectedBooking.log.condition_notes"></p>
+                            </div>
+                        </template>
+                    </div>
+
+                    <p class="text-gray-600 leading-relaxed">
+                        Apakah Anda telah selesai memeriksa kondisi fisik kendaraan dan memastikan odometer serta BBM sudah sesuai?
+                    </p>
+
+                    <div class="flex items-center gap-3 pt-3 border-t border-gray-100">
+                        <button type="button" @click="showVerifyReturnModal = false" class="w-1/2 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-200 transition">
+                            Batal
+                        </button>
+                        
+                        <button type="submit" class="w-1/2 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5">
+                            <span>✅ Konfirmasi Pemeriksaan</span>
                         </button>
                     </div>
                 </form>
@@ -682,7 +968,6 @@
             
             <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-100" @click.away="showRouteModal = false">
                 
-                {{-- HEADER MODAL --}}
                 <div class="bg-indigo-600 px-6 py-4 text-white flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-base flex items-center gap-2">
@@ -695,7 +980,6 @@
 
                 <div class="p-6 space-y-5 text-xs text-gray-700" x-if="routeBookingDetail">
                     
-                    {{-- 1. DESTINASI & NAVIGASI --}}
                     <div class="p-4 bg-indigo-50/70 rounded-xl border border-indigo-100 space-y-2">
                         <span class="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block">Lokasi Tujuan Dinas</span>
                         <p class="text-sm font-bold text-gray-900" x-text="routeBookingDetail.destination || '-'"></p>
@@ -709,7 +993,6 @@
                         </a>
                     </div>
 
-                    {{-- 2. JADWAL PERJALANAN --}}
                     <div class="grid grid-cols-2 gap-3 bg-gray-50 p-3.5 rounded-xl border border-gray-200/80">
                         <div>
                             <span class="text-[10px] text-gray-400 font-bold block">Keberangkatan:</span>
@@ -721,11 +1004,9 @@
                         </div>
                     </div>
 
-                    {{-- 3. KONTAK PENUMPANG / TIM DINAS --}}
                     <div class="space-y-2">
                         <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Kontak Tim / Penumpang</span>
                         
-                        {{-- PEMOHON UTAMA --}}
                         <div class="p-3 bg-white border border-gray-200 rounded-xl flex items-center justify-between">
                             <div>
                                 <p class="font-bold text-gray-900" x-text="routeBookingDetail.user?.name || '-'"></p>
@@ -739,14 +1020,12 @@
                             </template>
                         </div>
 
-                        {{-- MAKSUD / KEPERLUAN --}}
                         <div class="pt-2">
                             <span class="text-[10px] font-bold text-gray-400 block">Maksud Perjalanan:</span>
                             <p class="text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100 text-[11px] italic" x-text="routeBookingDetail.purpose || '-'"></p>
                         </div>
                     </div>
 
-                    {{-- FOOTER MODAL --}}
                     <div class="pt-2 border-t border-gray-100 flex justify-end">
                         <button type="button" @click="showRouteModal = false" class="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">
                             Tutup
@@ -757,9 +1036,7 @@
             </div>
         </div>
 
-        {{-- ========================================== --}}
-        {{-- MODAL KEBERANGKATAN (START TRIP)           --}}
-        {{-- ========================================== --}}
+        {{-- MODAL KEBERANGKATAN (START TRIP) --}}
         <div x-show="showStartTripModal" 
             class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" 
             x-transition
@@ -778,7 +1055,6 @@
                     @csrf
                     @method('PATCH')
 
-                    {{-- KM TERAKHIR TERCATAT --}}
                     <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
                         <div>
                             <span class="text-[10px] text-emerald-700 font-bold uppercase block">KM Terakhir Tercatat:</span>
@@ -787,7 +1063,6 @@
                         <span class="text-[10px] bg-emerald-200 text-emerald-800 px-2 py-1 rounded-lg font-bold">Acuan Sistem</span>
                     </div>
 
-                    {{-- INPUT KM AWAL --}}
                     <div class="space-y-1">
                         <label class="block font-bold text-gray-700">
                             Odometer / KM Awal Keberangkatan <span class="text-rose-500">*</span>
@@ -797,7 +1072,6 @@
                             class="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:bg-white focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
-                    {{-- LEVEL BBM AWAL --}}
                     <div class="space-y-1">
                         <label class="block font-bold text-gray-700">
                             Kapasitas BBM Awal <span class="text-rose-500">*</span>
@@ -811,7 +1085,6 @@
                         </select>
                     </div>
 
-                    {{-- FOTO DASHBOARD / KM AWAL (OPSIONAL) --}}
                     <div class="space-y-1">
                         <label class="block font-bold text-gray-700">
                             Foto Odometer / Fisik Awal <span class="text-gray-400 font-normal">(Opsional)</span>
@@ -820,7 +1093,6 @@
                             class="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition cursor-pointer">
                     </div>
 
-                    {{-- TOMBOL AKSI --}}
                     <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
                         <button type="button" @click="showStartTripModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">
                             Batal
@@ -834,9 +1106,7 @@
             </div>
         </div>
 
-        {{-- ========================================== --}}
-        {{-- MODAL PENGEMBALIAN (COMPLETE TRIP)         --}}
-        {{-- ========================================== --}}
+        {{-- MODAL PENGEMBALIAN (COMPLETE TRIP OLEH DRIVER) --}}
         <div x-show="showCompleteModal" 
             class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" 
             x-transition
@@ -855,7 +1125,6 @@
                     @csrf
                     @method('PATCH')
 
-                    {{-- RINGKASAN KM AWAL & ESTIMASI JARAK --}}
                     <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-200 flex items-center justify-between">
                         <div>
                             <span class="text-[10px] text-indigo-700 font-bold uppercase block">KM Awal Keberangkatan:</span>
@@ -869,7 +1138,6 @@
                         </template>
                     </div>
 
-                    {{-- INPUT KM AKHIR --}}
                     <div class="space-y-1">
                         <label class="block font-bold text-gray-700">
                             Odometer / KM Akhir Pengembalian <span class="text-rose-500">*</span>
@@ -879,7 +1147,6 @@
                             class="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:bg-white focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
 
-                    {{-- LEVEL BBM AKHIR --}}
                     <div class="space-y-1">
                         <label class="block font-bold text-gray-700">
                             Kapasitas BBM Akhir <span class="text-rose-500">*</span>
@@ -893,7 +1160,6 @@
                         </select>
                     </div>
 
-                    {{-- FOTO KM AKHIR (OPSIONAL) --}}
                     <div class="space-y-1">
                         <label class="block font-bold text-gray-700">
                             Foto Odometer / Pengembalian <span class="text-gray-400 font-normal">(Opsional)</span>
@@ -902,18 +1168,16 @@
                             class="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition cursor-pointer">
                     </div>
 
-                    {{-- TOGGLE CATATAN INSIDEN (OPSIONAL) --}}
                     <div class="pt-2 border-t border-gray-100 space-y-3">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" x-model="completeTripForm.hasIncident" class="rounded border-gray-300 text-rose-600 focus:ring-rose-500">
                             <span class="font-bold text-rose-600 text-xs">⚠️ Ada kendala / insiden kondisi kendaraan selama perjalanan?</span>
                         </label>
 
-                        {{-- FORM INPUT INSIDEN (MUNCUL JIKA CHECKBOX DICENTANG) --}}
                         <div x-show="completeTripForm.hasIncident" x-transition class="space-y-3 bg-rose-50/60 p-3.5 rounded-xl border border-rose-200">
                             <div class="space-y-1">
                                 <label class="block font-bold text-rose-900">
-                                    Catatan Catatan Kerusakan / Insiden
+                                    Catatan Kerusakan / Insiden
                                 </label>
                                 <textarea name="condition_notes" rows="2" placeholder="Jelaskan detail kendala (misal: bodi kanan tergores, lampu kiri mati...)"
                                         class="w-full px-3 py-2 bg-white border border-rose-200 rounded-xl text-xs font-medium focus:ring-rose-500 focus:border-rose-500"></textarea>
@@ -929,7 +1193,6 @@
                         </div>
                     </div>
 
-                    {{-- TOMBOL AKSI --}}
                     <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
                         <button type="button" @click="showCompleteModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">
                             Batal
@@ -943,9 +1206,7 @@
             </div>
         </div>
 
-        {{-- ====================================================== --}}
-        {{-- MODAL KONFIRMASI BATAL PENGAJUAN (OLEH PEMOHON)        --}}
-        {{-- ====================================================== --}}
+        {{-- MODAL KONFIRMASI BATAL PENGAJUAN (OLEH PEMOHON) --}}
         <div x-show="showCancelBookingModal" 
             class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" 
             x-transition
@@ -983,10 +1244,7 @@
             </div>
         </div>
 
-
-        {{-- ====================================================== --}}
-        {{-- MODAL KONFIRMASI BATAL PERSETUJUAN (OLEH ADMIN)        --}}
-        {{-- ====================================================== --}}
+        {{-- MODAL KONFIRMASI BATAL PERSETUJUAN (OLEH ADMIN) --}}
         <div x-show="showCancelApprovalModal" 
             class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" 
             x-transition

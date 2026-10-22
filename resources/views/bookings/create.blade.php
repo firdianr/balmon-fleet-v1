@@ -1,4 +1,20 @@
 <x-app-layout>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .autofill-highlight {
+            animation: highlightGreen 2s ease-out;
+        }
+        @keyframes highlightGreen {
+            0% {
+                border-color: #22c55e;
+                box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25);
+            }
+            100% {
+                border-color: #d1d5db;
+                box-shadow: none;
+            }
+        }
+    </style>
     <x-slot name="header">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -50,7 +66,49 @@
             }
         },
 
-        // Auto-Fill Handler via Backend Parsing
+        getAvailableUsers(currentIndex) {
+            return this.users.filter(u => {
+                const isSelectedElsewhere = this.selectedUserIds.some((selectedId, idx) => {
+                    return idx !== currentIndex && String(selectedId) === String(u.id);
+                });
+                return !isSelectedElsewhere;
+            });
+        },
+
+        // Helper untuk SweetAlert2 Toast
+        showToast(icon, title, text = '') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: icon,
+                title: title,
+                text: text,
+                showConfirmButton: false,
+                timer: 3500,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
+        },
+
+        // Trigger Efek Highlight pada Input Field
+        triggerHighlight() {
+            this.$nextTick(() => {
+                const fields = ['letter_number', 'destination', 'purpose', 'start_date', 'end_date'];
+                fields.forEach(fieldId => {
+                    const el = document.getElementById(fieldId);
+                    if (el) {
+                        el.classList.remove('autofill-highlight');
+                        void el.offsetWidth; // Trigger DOM reflow
+                        el.classList.add('autofill-highlight');
+                    }
+                });
+            });
+        },
+
+        // Auto-Fill Handler via Backend Parsing (SweetAlert2 Toast + Highlight)
         async handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -60,6 +118,7 @@
             formData.append('_token', '{{ csrf_token() }}');
 
             this.isParsing = true;
+            this.showToast('info', 'Mengekstrak Surat Tugas ...');
 
             try {
                 const response = await fetch('{{ route('bookings.parse_document') }}', {
@@ -82,12 +141,14 @@
                         this.selectedUserIds = data.user_ids.map(id => String(id));
                     }
 
-                    alert('✨ Auto-Fill Berhasil! Nomor Surat Tugas, Jadwal, Maksud, dan Anggota Tim berhasil diisi otomatis.');
+                    // Tampilkan Toast Sukses & Trigger Animasi Highlight
+                    this.showToast('success', 'Autofill Berhasil!', 'Data Surat Tugas berhasil diisi otomatis.');
+                    this.triggerHighlight();
                 } else {
-                    alert('⚠️ Gagal membaca berkas: ' + result.message);
+                    this.showToast('error', 'Gagal Membaca Dokumen', result.message || 'Terjadi kesalahan pada parsing file.');
                 }
             } catch (error) {
-                alert('⚠️ Terjadi kesalahan server saat memproses Surat Tugas.');
+                this.showToast('error', 'Kesalahan Server', 'Gagal memproses Surat Tugas.');
             } finally {
                 this.isParsing = false;
             }
@@ -101,7 +162,7 @@
         },
 
         submitForm() {
-            $refs.bookingForm.submit();
+            this.$refs.bookingForm.submit();
         }
     }">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
@@ -295,15 +356,22 @@
                                     <span class="text-xs font-bold text-gray-400 w-6" x-text="'#' + (index + 1)"></span>
                                     
                                     <div class="flex-grow">
-                                        <select name="participants[]" x-model="selectedUserIds[index]" required class="block w-full rounded-lg border-gray-300 text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500">
+                                        <select name="participants[]" 
+                                                x-model="selectedUserIds[index]" 
+                                                class="block w-full rounded-lg border-gray-300 text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500">
                                             <option value="">-- Pilih Anggota Tim --</option>
-                                            <template x-for="u in users" :key="u.id">
+                                            
+                                            {{-- Iterasi opsi menggunakan getAvailableUsers(index) --}}
+                                            <template x-for="u in getAvailableUsers(index)" :key="u.id">
                                                 <option :value="u.id" x-text="u.name + (u.nip ? ' (NIP: ' + u.nip + ')' : '') + ' - ' + u.role.toUpperCase()"></option>
                                             </template>
                                         </select>
                                     </div>
 
-                                    <button type="button" @click="removeMember(index)" x-show="selectedUserIds.length > 1" class="text-rose-600 hover:text-rose-800 p-1 font-bold text-lg">&times;</button>
+                                    <button type="button" 
+                                            @click="removeMember(index)" 
+                                            x-show="selectedUserIds.length > 1" 
+                                            class="text-rose-600 hover:text-rose-800 p-1 font-bold text-lg">&times;</button>
                                 </div>
                             </template>
                         </div>

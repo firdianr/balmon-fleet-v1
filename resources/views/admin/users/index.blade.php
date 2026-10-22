@@ -1,8 +1,8 @@
 <x-app-layout>
-    <x-slot name="title">Kelola Pegawai / User</x-slot>
+    <x-slot name="title">Kelola Data & Akun Pegawai</x-slot>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Kelola Akun Pegawai & User') }}
+            {{ __('Kelola Akun Pegawai') }}
         </h2>
     </x-slot>
 

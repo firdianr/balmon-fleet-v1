@@ -26,7 +26,7 @@
                         {{ __('Kalender Jadwal') }}
                     </x-nav-link>
 
-                    @if(auth()->user()->isAdminApp())
+                    @can('manage-vehicles')
                         <x-nav-link :href="route('admin_app.vehicles.index')" :active="request()->routeIs('admin_app.vehicles.*')">
                             {{ __('Kelola Armada') }}
                         </x-nav-link>
@@ -34,7 +34,7 @@
                         <x-nav-link :href="route('vehicles.index')" :active="request()->routeIs('vehicles.*')">
                             {{ __('Daftar Armada') }}
                         </x-nav-link>
-                    @endif
+                    @endcan
 
                     @if(auth()->user()->isAdminApp())
                         <x-nav-link :href="route('admin_app.users.index')" :active="request()->routeIs('admin.users.*')">
@@ -102,7 +102,7 @@
                 {{ __('Kalender Jadwal') }}
             </x-responsive-nav-link>
 
-            @if(auth()->user()->isAdminApp())
+            @can('manage-vehicles')
                 <x-responsive-nav-link :href="route('admin_app.vehicles.index')" :active="request()->routeIs('admin_app.vehicles.*')">
                     {{ __('Kelola Armada') }}
                 </x-responsive-nav-link>
@@ -110,7 +110,7 @@
                 <x-responsive-nav-link :href="route('vehicles.index')" :active="request()->routeIs('vehicles.*')">
                     {{ __('Daftar Armada') }}
                 </x-responsive-nav-link>
-            @endif
+            @endcan
 
             @if(auth()->user()->isAdminApp())
                 <x-responsive-nav-link :href="route('admin_app.users.index')" :active="request()->routeIs('admin.users.*')">

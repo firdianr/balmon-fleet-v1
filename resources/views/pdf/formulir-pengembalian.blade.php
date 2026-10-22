@@ -5,7 +5,7 @@
     <title>Formulir Pengembalian Kendaraan Dinas</title>
     <style>
         /* 1. Pengaturan Halaman PDF (Ukuran Margin Kertas A4) */
-        @page { margin: 1.2cm 1.8cm 1.8cm 1.8cm; }
+        @page { margin: 1.5cm 2cm 1.5cm 2cm; }
 
         /* 2. Pengaturan Font Dasar Seluruh Dokumen (Times New Roman) */
         body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.35; color: #000; }
@@ -135,21 +135,28 @@
         Demikian Formulir Pengembalian Kendaraan Operasional/Fungsional ini dibuat untuk dipergunakan sebagaimana mestinya.
     </p>
 
-    <table class="ttd-table">
+    <table class="ttd-table" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
         <tr>
-            <td></td>
-            <td>
-                Semarang, {{ $booking->log && $booking->log->checked_in_at ?  \Carbon\Carbon::parse($booking->log->checked_in_at)->isoFormat('D MMMM YYYY') : date('d F Y') }}<br>
-                Peminjam,
+            <td style="width: 50%;"></td>
+            <td style="width: 50%; vertical-align: top; text-align: center; padding: 0;">
+                Semarang, {{ $booking->log && $booking->log->checked_in_at ? \Carbon\Carbon::parse($booking->log->checked_in_at)->isoFormat('D MMMM YYYY') : date('d F Y') }}<br>
+                <strong>Peminjam,</strong>
             </td>
         </tr>
         <tr>
-            <td style="height: 65px;"></td>
             <td></td>
+            {{-- AREA QR CODE TTE (SEJAJAR PRESISI DI TENGAH KOLOM) --}}
+            <td style="vertical-align: middle; text-align: center; padding: 2px 0;">
+                @if(in_array($booking->status, ['returned', 'checked', 'completed']) && isset($qrCode))
+                    <img src="data:image/svg+xml;base64,{{ $qrCode }}" alt="TTE QR Code" style="width: 100px; height: 100px; display: block; margin: 0 auto;">
+                @else
+                    <div style="height: 100px;"></div>
+                @endif
+            </td>
         </tr>
         <tr>
             <td></td>
-            <td>
+            <td style="vertical-align: top; text-align: center; padding: 0;">
                 <strong><u>{{ $booking->user->name ?? '-' }}</u></strong><br>
                 NIP. {{ $booking->user->nip ?? '-' }}
             </td>

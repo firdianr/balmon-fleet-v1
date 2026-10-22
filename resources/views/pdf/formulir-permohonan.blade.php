@@ -107,7 +107,7 @@
             <td class="label">Merek/Tipe Kendaraan</td>
             <td class="colon">:</td>
             <td class="value">
-                {{ $booking->vehicle ? ($booking->vehicle->brand . ' ' . $booking->vehicle->model) : 'Armada Operasional (Di-plot Admin)' }}
+                {{ $booking->vehicle ? ($booking->vehicle->brand . ' ' . $booking->vehicle->model) : 'Armada Operasional (Belum Di-Plot Admin)' }}
             </td>
         </tr>
         <tr>
@@ -151,8 +151,15 @@
             <td>Semarang, {{ $booking->created_at->isoFormat('D MMMM YYYY') }}<br>Peminjam,</td>
         </tr>
         <tr>
-            <td style="height: 65px;"></td>
-            <td></td>
+            <td style="height: 100px; text-align: center; vertical-align: middle;">
+                {{-- Spasium kosong jika belum ada QR Code --}}
+            </td>
+            <td style="height: 100px; text-align: center; vertical-align: middle;">
+                {{-- TAMPILKAN QR CODE TTE JIKA VEHICLE_ID TERISI --}}
+                @if($booking->vehicle_id && isset($qrCode))
+                    <img src="data:image/svg+xml;base64,{{ $qrCode }}" alt="TTE QR Code" style="width: 100px; height: 100px; margin-top: 5px; margin-bottom: 5px;">
+                @endif
+            </td>
         </tr>
         <tr>
             <td></td>

@@ -6,15 +6,13 @@ use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class StoreVehicleRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        /** @var User|null $user */
-        $user = Auth::user();
-
-        return Auth::check() && $user && $user->isAdminApp();
+        return Gate::allows('manage-vehicles');
     }
 
     public function rules(): array
@@ -28,7 +26,7 @@ class StoreVehicleRequest extends FormRequest
             'capacity'     => 'required|integer|min:1',
             'fuel_type'    => 'required|string|max:50',
             'status'       => 'required|in:available,borrowed,maintenance',
-            'photo'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'photo'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
             'notes'        => 'nullable|string',
         ];
     }
@@ -47,7 +45,7 @@ class StoreVehicleRequest extends FormRequest
             'capacity.required'     => 'Kapasitas penumpang wajib diisi.',
             'fuel_type.required'    => 'Jenis bahan bakar wajib diisi.',
             'photo.image'           => 'File foto harus berupa gambar.',
-            'photo.max'             => 'Ukuran foto kendaraan maksimal 2MB.',
+            'photo.max'             => 'Ukuran foto kendaraan maksimal 8MB.',
         ];
     }
 }

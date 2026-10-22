@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>BAST Pengembalian Kendaraan Dinas</title>
+    <link rel="shortcut icon" href="{{ asset('favicon.png') }}">
     <style>
         /* 1. Pengaturan Halaman PDF (Ukuran Margin Kertas A4) */
         @page { margin: 1.5cm 2cm 1.5cm 2cm; }
@@ -201,33 +202,63 @@
         Demikian Berita Acara Serah Terima ini dibuat sebagai dasar pengembalian dan pengendalian terhadap penggunaan kendaraan dinas operasional/fungsional untuk digunakan sebagaimana mestinya.
     </p>
 
-    <table class="ttd-table">
+    <table class="ttd-table" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
         <tr>
-            <td>PIHAK PERTAMA<br>Penanggung Jawab,</td>
-            <td>PIHAK KEDUA<br>Peminjam,</td>
-        </tr>
-        <tr>
-            <td style="height: 60px;"></td>
-            <td></td>
-        </tr>
-        <tr>
-            <td>
-                <strong><u>{{ $booking->approver->name ?? 'Penanggung Jawab BMN' }}</u></strong><br>
-                NIP. {{ $booking->approver->nip ?? '-' }}
+            <td style="width: 50%; vertical-align: top; text-align: center; padding: 0 4px;">
+                PIHAK PERTAMA<br>
+                <strong>Penanggung Jawab,</strong>
             </td>
-            <td>
-                <strong><u>{{ $booking->user->name }}</u></strong><br>
-                NIP. {{ $booking->user->nip ?? '-' }}
+            <td style="width: 50%; vertical-align: top; text-align: center; padding: 0 4px;">
+                PIHAK KEDUA<br>
+                <strong>Peminjam,</strong>
             </td>
         </tr>
         <tr>
-            <td colspan="2" style="padding-top: 12px; text-align: center;">
+            {{-- TTE PIHAK PERTAMA (PENANGGUNG JAWAB) --}}
+            <td style="vertical-align: middle; text-align: center; padding: 2px 0;">
+                @if(!empty($tteData['penanggung_jawab']['signed']) && !empty($tteData['penanggung_jawab']['qr_code']))
+                    <img src="data:image/svg+xml;base64,{{ $tteData['penanggung_jawab']['qr_code'] }}" width="85" height="85" style="display: block; margin: 0 auto;">
+                @else
+                    <div style="height: 85px;"></div>
+                @endif
+            </td>
+
+            {{-- TTE PIHAK KEDUA (PEMINJAM) --}}
+            <td style="vertical-align: middle; text-align: center; padding: 2px 0;">
+                @if(!empty($tteData['peminjam']['signed']) && !empty($tteData['peminjam']['qr_code']))
+                    <img src="data:image/svg+xml;base64,{{ $tteData['peminjam']['qr_code'] }}" width="85" height="85" style="display: block; margin: 0 auto;">
+                @else
+                    <div style="height: 85px;"></div>
+                @endif
+            </td>
+        </tr>
+        <tr>
+            <td style="vertical-align: top; text-align: center; padding: 0 4px;">
+                <strong><u>{{ $tteData['penanggung_jawab']['name'] }}</u></strong><br>
+                NIP. {{ $tteData['penanggung_jawab']['nip'] }}
+            </td>
+            <td style="vertical-align: top; text-align: center; padding: 0 4px;">
+                <strong><u>{{ $tteData['peminjam']['name'] }}</u></strong><br>
+                NIP. {{ $tteData['peminjam']['nip'] }}
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2" style="padding-top: 10px; text-align: center; vertical-align: top;">
                 <strong>Mengetahui,</strong><br>
                 Kuasa Pengguna Barang/Pimpinan Unit Akuntansi<br>
                 Pembantu Kuasa Pengguna Barang,
-                <br><br><br><br><br>
-                <strong><u>( Nama Pejabat )</u></strong><br>
-                NIP. (NIP Pejabat)
+
+                {{-- TTE MENGETAHUI (APPROVER / ATASAN) --}}
+                <div style="padding: 2px 0;">
+                    @if(!empty($tteData['approver']['signed']) && !empty($tteData['approver']['qr_code']))
+                        <img src="data:image/svg+xml;base64,{{ $tteData['approver']['qr_code'] }}" width="85" height="85" style="display: block; margin: 0 auto;">
+                    @else
+                        <div style="height: 85px;"></div>
+                    @endif
+                </div>
+
+                <strong><u>{{ $tteData['approver']['name'] }}</u></strong><br>
+                NIP. {{ $tteData['approver']['nip'] }}
             </td>
         </tr>
     </table>

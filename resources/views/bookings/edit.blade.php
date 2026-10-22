@@ -48,6 +48,15 @@
             }
         },
 
+        getAvailableUsers(currentIndex) {
+            return this.users.filter(u => {
+                const isSelectedElsewhere = this.selectedUserIds.some((selectedId, idx) => {
+                    return idx !== currentIndex && String(selectedId) === String(u.id);
+                });
+                return !isSelectedElsewhere;
+            });
+        },
+
         getSelectedVehicleDetail() {
             if (this.vehicleType === 'monitoring' && this.selectedVehicleId) {
                 return this.monitoringVehicles.find(v => v.id == this.selectedVehicleId);
@@ -119,6 +128,9 @@
                         <label class="block text-sm font-bold text-gray-700">Nomor Surat Tugas <span class="text-red-500">*</span></label>
                         <input type="text" name="letter_number" x-model="letterNumber" placeholder="Contoh: xxx/Balmon.xx/KP.xx.xx/xx/20xx" required
                                class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 text-sm font-mono font-bold">
+                        @error('letter_number')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     {{-- 1. PEMILIHAN JENIS KENDARAAN DINAS --}}
@@ -238,7 +250,9 @@
                                     <div class="flex-grow">
                                         <select name="participants[]" x-model="selectedUserIds[index]" class="block w-full rounded-lg border-gray-300 text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500">
                                             <option value="">-- Pilih Anggota Tim --</option>
-                                            <template x-for="u in users" :key="u.id">
+                                            
+                                            {{-- Gunakan getAvailableUsers(index) sebagai pengganti users --}}
+                                            <template x-for="u in getAvailableUsers(index)" :key="u.id">
                                                 <option :value="u.id" x-text="u.name + (u.nip ? ' (NIP: ' + u.nip + ')' : '') + ' - ' + u.role.toUpperCase()"></option>
                                             </template>
                                         </select>
