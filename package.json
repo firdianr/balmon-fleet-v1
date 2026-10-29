@@ -23,6 +23,8 @@
         "@laravel/multiplex": "^0.4.1"
     },
     "dependencies": {
-        "alpinejs": "^3.17.4"
+        "alpinejs": "^3.17.4",
+        "flatpickr": "^4.6.13",
+        "flowbite": "^4.0.2"
     }
 }

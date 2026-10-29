@@ -47,4 +47,14 @@ class Vehicle extends Model
     {
         return $this->hasMany(Booking::class);
     }
+
+    public function checklists()
+    {
+        return $this->hasMany(TripChecklist::class, 'vehicle_id');
+    }
+
+    public function lastChecklist()
+    {
+        return $this->hasOne(TripChecklist::class)->where('type', 'end')->latestOfMany();
+    }
 }

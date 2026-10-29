@@ -39,7 +39,7 @@ class AppServiceProvider extends ServiceProvider
         // 4. Gate Otorisasi Pengelolaan Kendaraan (Termasuk Sakelar Toggle Driver)
         Gate::define('manage-vehicles', function (User $user) {
             // admin_app dan admin_lap selalu memiliki hak akses
-            if (in_array($user->role, ['admin_app'])) {
+            if (in_array($user->role, ['admin_app', 'admin_lap'])) {
                 return true;
             }
 

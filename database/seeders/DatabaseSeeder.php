@@ -16,6 +16,19 @@ class DatabaseSeeder extends Seeder
     {
         // 1. Seed Accounts
         User::create([
+            'name'       => 'Ahmad Pegawai',
+            'slug'       => 'ahmad-pegawai',
+            'email'      => 'pegawai@balmon.go.id',
+            'nip'        => '199203152018021002',
+            'password'   => Hash::make('password123'),
+            'role'       => 'pegawai',
+            'phone'      => '087761370145',
+            'pangkat'    => 'Pengatur (II/c)',
+            'jabatan'    => 'PFR Ahli Muda',
+            'department' => 'Seksi Teknologi Informasi',
+        ]);
+
+        User::create([
             'name'       => 'Admin Aplikasi',
             'slug'       => 'admin-aplikasi',
             'email'      => 'adminapp@balmon.go.id',
@@ -52,19 +65,6 @@ class DatabaseSeeder extends Seeder
             'pangkat'    => 'Pembina Tingkat I (IV/b)',
             'jabatan'    => 'Kepala Balai Monitor',
             'department' => 'Kepala Balai Monitor',
-        ]);
-
-        User::create([
-            'name'       => 'Ahmad Pegawai',
-            'slug'       => 'ahmad-pegawai',
-            'email'      => 'pegawai@balmon.go.id',
-            'nip'        => '199203152018021002',
-            'password'   => Hash::make('password123'),
-            'role'       => 'pegawai',
-            'phone'      => '087761370145',
-            'pangkat'    => 'Pengatur (II/c)',
-            'jabatan'    => 'PFR Ahli Muda',
-            'department' => 'Seksi Teknologi Informasi',
         ]);
 
         User::create([

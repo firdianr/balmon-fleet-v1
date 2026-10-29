@@ -139,4 +139,9 @@ class User extends Authenticatable
             }
         });
     }
+
+    public function attendances()
+    {
+        return $this->hasMany(DriverAttendance::class, 'user_id');
+    }
 }

@@ -5,50 +5,30 @@
     <title>BAST Peminjaman Kendaraan Dinas</title>
     <link rel="shortcut icon" href="{{ asset('favicon.png') }}">
     <style>
-        /* 1. Pengaturan Halaman PDF (Ukuran Margin Kertas A4) */
         @page { margin: 1.5cm 2cm 1.5cm 2cm; }
-
-        /* 2. Pengaturan Font Dasar Seluruh Dokumen (Times New Roman) */
         body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.35; color: #000; }
-
-        /* 3. Pengaturan Tabel Kop Surat */
         .header-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
         .header-table td { vertical-align: middle; }
-
-        /* 4. Pengaturan Area Logo Komdigi (Kolom Kiri 15%) */
         .logo-container { width: 20%; text-align: left; }
         .logo-img { height: 90px; width: auto; }
-
-        /* 5. Pengaturan Teks Instansi Kop Surat (Kolom Kanan 85%) & Hirarki Ukuran */
         .header-text { width: 80%; text-align: left; padding-left: 5px; }
         .header-text h3 { font-size: 12pt; margin: 0; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.2; }
         .header-text h2 { font-size: 13.5pt; margin: 0; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.2; }
         .header-text h1 { font-size: 16pt; margin: 0; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.2; }
         .header-text p { font-size: 6pt; margin: 3px 0 0 0; color: #000; font-weight: normal; line-height: 1.2; }
-
-        /* 6. Garis Hitam Pembatas Kop Surat */
         .header-line { border: none; border-top: 2.5px solid #000; margin-top: 2px; margin-bottom: 18px; }
-
-        /* 7. Judul Dokumen (Misal: FORMULIR PERMOHONAN / BAST) */
         .title { text-align: center; font-weight: bold; font-size: 11pt; text-transform: uppercase; margin-top: 10px; margin-bottom: 20px; }
-
-        /* 8. Tabel Isian Data (Nama, NIP, Merek Kendaraan, dll) */
         .content-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
         .content-table td { padding: 3px 0; vertical-align: top; }
         .content-table td.label { width: 32%; }
         .content-table td.colon { width: 3%; text-align: center; }
         .content-table td.value { width: 65%; font-weight: bold; }
-
-        /* 9. Paragraf Pernyataan / Isi Pasal */
         .paragraph { text-align: justify; text-indent: 30px; margin-bottom: 12px; }
-
-        /* 10. Tabel Area Tanda Tangan */
         .ttd-table { width: 100%; margin-top: 25px; border-collapse: collapse; }
         .ttd-table td { width: 50%; text-align: center; vertical-align: top; }
     </style>
 </head>
 <body>
-    {{-- KOP SURAT BALMON SEMARANG --}}
     <table class="header-table">
         <tr>
             <td class="logo-container">
@@ -73,10 +53,12 @@
         <span style="font-weight: normal; font-size: 9pt;">Nomor: BAST/{{ $booking->letter_number }}</span>
     </div>
 
-    <p>Pada hari ini, <strong>{{ $booking->start_date->isoFormat('dddd') }}</strong>, tanggal <strong>{{ $booking->start_date->isoFormat('D MMMM YYYY') }}</strong>, bertempat di Balai Monitor Spektrum Frekuensi Radio dan Infrastruktur Digital Kelas I Semarang, kami yang bertanda tangan di bawah ini:</p>
+    <p style="text-align: justify; margin-bottom: 10px;">
+        Pada hari ini, <strong>{{ $booking->start_date->isoFormat('dddd') }}</strong>, tanggal <strong>{{ $booking->start_date->isoFormat('D MMMM YYYY') }}</strong>, bertempat di Balai Monitor Spektrum Frekuensi Radio dan Infrastruktur Digital Kelas I Semarang, berdasarkan Surat Tugas Nomor <strong>{{ $booking->letter_number }}</strong>, kami yang bertanda tangan di bawah ini:
+    </p>
 
     <table class="content-table">
-        {{-- PIHAK PERTAMA (PENANGGUNG JAWAB/PENGELOLA KENDARAAN) --}}
+        {{-- PIHAK PERTAMA --}}
         <tr>
             <td style="width: 3%; vertical-align: top;">1.</td>
             <td style="width: 25%;">Nama</td>
@@ -108,12 +90,12 @@
             </td>
         </tr>
 
-        {{-- PIHAK KEDUA (PEMINJAM KENDARAAN) --}}
+        {{-- PIHAK KEDUA --}}
         <tr>
             <td style="vertical-align: top;">2.</td>
             <td>Nama</td>
             <td>:</td>
-            <td><strong>{{ $booking->user->name }}</strong></td>
+            <td><strong>{{ $booking->user->name ?? '-' }}</strong></td>
         </tr>
         <tr>
             <td></td>
@@ -143,7 +125,6 @@
 
     <p>Pihak Pertama dan Pihak Kedua selanjutnya secara masing–masing disebut sebagai “Pihak” dan bersama-sama disebut sebagai “Para Pihak”.</p>
 
-    {{--==================== PASAL 1 ====================--}}
     <div style="text-align: center; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">
         PASAL 1<br>
         DEFINISI
@@ -166,7 +147,6 @@
         </li>
     </ol>
 
-    {{--==================== PASAL 2 ====================--}}
     <div style="text-align: center; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">
         PASAL 2<br>
         RUANG LINGKUP
@@ -175,7 +155,6 @@
         Ruang lingkup perjanjian dalam BAST Peminjaman ini meliputi objek peminjaman, hak, kewajiban, dan larangan bagi Para Pihak serta kondisi tertentu yang mempengaruhi.
     </p>
 
-    {{--==================== PASAL 3 ====================--}}
     <div style="text-align: center; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">
         PASAL 3<br>
         OBJEK PEMINJAMAN
@@ -227,7 +206,6 @@
         </li>
     </ol>
 
-    {{--==================== PASAL 4 ====================--}}
     <div style="text-align: center; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">
         PASAL 4<br>
         JANGKA WAKTU PEMINJAMAN
@@ -245,7 +223,6 @@
         </li>
     </ol>
 
-    {{--==================== PASAL 5 ====================--}}
     <div style="text-align: center; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">
         PASAL 5<br>
         HAK DAN KEWAJIBAN PARA PIHAK
@@ -255,68 +232,33 @@
         <li style="margin-bottom: 8px;">
             Hak dan kewajiban Pihak Pertama berdasarkan BAST Peminjaman ini adalah sebagai berikut:
             <ol type="a" style="margin-top: 4px; padding-left: 20px;">
-                <li style="margin-bottom: 4px;">
-                    Pihak Pertama wajib menyerahkan kendaraan dinas operasional/fungsional beserta kelengkapannya sebagaimana tertulis pada pasal 3.2 BAST Peminjaman ini.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Pertama wajib untuk memberitahukan kepada Pihak Kedua segala sesuatu terkait dengan kondisi Kendaraan selambat-lambatnya pada saat penandatanganan BAST Peminjaman ini.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Pertama berhak meminta kembali kendaraan dinas operasional/fungsional yang sedang dipinjam Pihak Kedua sebelum masa peminjaman selesai sesuai dengan kebutuhan tugas dan fungsi Pihak Pertama.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Apabila di kemudian hari timbul biaya akibat kerusakan kendaraan (klaim asuransi) selama periode peminjaman Pihak Kedua, Pihak Pertama berhak untuk meminta biaya penggantian yang ditimbulkan kepada Pihak Kedua.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Apabila di kemudian hari timbul biaya akibat adanya pelanggaran lalu lintas selama periode peminjaman Pihak Kedua, Pihak Pertama berhak untuk meminta biaya penggantian yang ditimbulkan kepada Pihak Kedua.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Pertama wajib melakukan verifikasi kondisi kendaraan beserta kelengkapannya saat Pihak Kedua mengembalikan kendaraan dinas operasional/fungsional. Dalam hal verifikasi dinyatakan tidak lengkap, Pihak Pertama berhak untuk meminta pertanggungjawaban Pihak Kedua.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Pertama berhak menyetujui atau menolak Formulir Permohonan Peminjaman Kendaraan Dinas Operasional/Fungsional dan Formulir Perpanjangan Peminjaman Kendaraan Dinas Operasional/Fungsional yang diajukan oleh Pihak Kedua.
-                </li>
+                <li style="margin-bottom: 4px;">Pihak Pertama wajib menyerahkan kendaraan dinas operasional/fungsional beserta kelengkapannya sebagaimana tertulis pada pasal 3.2 BAST Peminjaman ini.</li>
+                <li style="margin-bottom: 4px;">Pihak Pertama wajib untuk memberitahukan kepada Pihak Kedua segala sesuatu terkait dengan kondisi Kendaraan selambat-lambatnya pada saat penandatanganan BAST Peminjaman ini.</li>
+                <li style="margin-bottom: 4px;">Pihak Pertama berhak meminta kembali kendaraan dinas operasional/fungsional yang sedang dipinjam Pihak Kedua sebelum masa peminjaman selesai sesuai dengan kebutuhan tugas dan fungsi Pihak Pertama.</li>
+                <li style="margin-bottom: 4px;">Apabila di kemudian hari timbul biaya akibat kerusakan kendaraan (klaim asuransi) selama periode peminjaman Pihak Kedua, Pihak Pertama berhak untuk meminta biaya penggantian yang ditimbulkan kepada Pihak Kedua.</li>
+                <li style="margin-bottom: 4px;">Apabila di kemudian hari timbul biaya akibat adanya pelanggaran lalu lintas selama periode peminjaman Pihak Kedua, Pihak Pertama berhak untuk meminta biaya penggantian yang ditimbulkan kepada Pihak Kedua.</li>
+                <li style="margin-bottom: 4px;">Pihak Pertama wajib melakukan verifikasi kondisi kendaraan beserta kelengkapannya saat Pihak Kedua mengembalikan kendaraan dinas operasional/fungsional. Dalam hal verifikasi dinyatakan tidak lengkap, Pihak Pertama berhak untuk meminta pertanggungjawaban Pihak Kedua.</li>
+                <li style="margin-bottom: 4px;">Pihak Pertama berhak menyetujui atau menolak Formulir Permohonan Peminjaman Kendaraan Dinas Operasional/Fungsional dan Formulir Perpanjangan Peminjaman Kendaraan Dinas Operasional/Fungsional yang diajukan oleh Pihak Kedua.</li>
             </ol>
         </li>
 
         <li style="margin-bottom: 8px;">
             Hak dan kewajiban Pihak Kedua berdasarkan BAST Peminjaman ini adalah sebagai berikut:
             <ol type="a" style="margin-top: 4px; padding-left: 20px;">
-                <li style="margin-bottom: 4px;">
-                    Pihak Kedua berhak menggunakan kendaraan dinas operasional/fungsional sesuai keperluan yang disetujui.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Kedua wajib membuat Formulir Permohonan Peminjaman Kendaraan Dinas Operasional/Fungsional sebelum meminjam kendaraan dinas operasional/fungsional.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Kedua wajib mengembalikan kendaraan dinas operasional/fungsional ketika masa peminjaman berakhir dan/atau ketika Pihak Pertama akan menggunakan kendaraan dinas operasional/fungsional untuk kebutuhan tugas dan fungsi Pihak Pertama.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Kedua Wajib menjaga, merawat, dan mengembalikan kendaraan tepat waktu dan dalam kondisi baik.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Dalam hal tidak tersedianya ruang parkir di lingkungan Kementerian Komunikasi dan Digital maka Pihak Kedua dapat menyimpan kendaraan dinas operasional/fungsional di lokasi lain di luar lingkungan kantor dengan tetap memperhatikan pengamanan fisik kendaraan.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Kedua wajib mengembalikan kendaraan lebih awal apabila sudah tidak digunakan.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Kedua wajib membayar biaya yang timbul dan/atau akan timbul akibat kerusakan kendaraan (klaim asuransi) selama periode peminjaman.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Kedua wajib membayar biaya yang timbul dan/atau akan timbul akibat adanya pelanggaran lalu lintas selama periode peminjaman.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Kedua wajib bertanggung jawab sepenuhnya sesuai ketentuan apabila terjadi kerusakan dan/atau kehilangan kelengkapan kendaraan sebagaimana tersebut pada pasal 3.2 serta hal lain yang ditimbulkan selama periode peminjaman.
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Pihak Kedua berhak mengajukan Formulir Perpanjangan Peminjaman Kendaraan Dinas Operasional/Fungsional sebelum berakhirnya masa peminjaman.
-                </li>
+                <li style="margin-bottom: 4px;">Pihak Kedua berhak menggunakan kendaraan dinas operasional/fungsional sesuai keperluan yang disetujui.</li>
+                <li style="margin-bottom: 4px;">Pihak Kedua wajib membuat Formulir Permohonan Peminjaman Kendaraan Dinas Operasional/Fungsional sebelum meminjam kendaraan dinas operasional/fungsional.</li>
+                <li style="margin-bottom: 4px;">Pihak Kedua wajib mengembalikan kendaraan dinas operasional/fungsional ketika masa peminjaman berakhir dan/atau ketika Pihak Pertama akan menggunakan kendaraan dinas operasional/fungsional untuk kebutuhan tugas dan fungsi Pihak Pertama.</li>
+                <li style="margin-bottom: 4px;">Pihak Kedua Wajib menjaga, merawat, dan mengembalikan kendaraan tepat waktu dan dalam kondisi baik.</li>
+                <li style="margin-bottom: 4px;">Dalam hal tidak tersedianya ruang parkir di lingkungan Kementerian Komunikasi dan Digital maka Pihak Kedua dapat menyimpan kendaraan dinas operasional/fungsional di lokasi lain di luar lingkungan kantor dengan tetap memperhatikan pengamanan fisik kendaraan.</li>
+                <li style="margin-bottom: 4px;">Pihak Kedua wajib mengembalikan kendaraan lebih awal apabila sudah tidak digunakan.</li>
+                <li style="margin-bottom: 4px;">Pihak Kedua wajib membayar biaya yang timbul dan/atau akan timbul akibat kerusakan kendaraan (klaim asuransi) selama periode peminjaman.</li>
+                <li style="margin-bottom: 4px;">Pihak Kedua wajib membayar biaya yang timbul dan/atau akan timbul akibat adanya pelanggaran lalu lintas selama periode peminjaman.</li>
+                <li style="margin-bottom: 4px;">Pihak Kedua wajib bertanggung jawab sepenuhnya sesuai ketentuan apabila terjadi kerusakan dan/atau kehilangan kelengkapan kendaraan sebagaimana tersebut pada pasal 3.2 serta hal lain yang ditimbulkan selama periode peminjaman.</li>
+                <li style="margin-bottom: 4px;">Pihak Kedua berhak mengajukan Formulir Perpanjangan Peminjaman Kendaraan Dinas Operasional/Fungsional sebelum berakhirnya masa peminjaman.</li>
             </ol>
         </li>
     </ol>
 
-    {{--==================== PASAL 6 ====================--}}
     <div style="text-align: center; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">
         PASAL 6<br>
         LARANGAN
@@ -325,12 +267,8 @@
         <li style="margin-bottom: 6px;">
             Dalam hal penggunaan kartu BBM, Pihak Kedua dilarang:
             <ol type="a" style="margin-top: 4px; padding-left: 20px;">
-                <li style="margin-bottom: 4px;">
-                    Menggunakan di luar hari kerja kecuali mendapatkan persetujuan dari pimpinan atau Pihak Pertama;
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Menggunakan pada saat melaksanakan perjalanan dinas luar kota.
-                </li>
+                <li style="margin-bottom: 4px;">Menggunakan di luar hari kerja kecuali mendapatkan persetujuan dari pimpinan atau Pihak Pertama;</li>
+                <li style="margin-bottom: 4px;">Menggunakan pada saat melaksanakan perjalanan dinas luar kota.</li>
             </ol>
         </li>
         <li style="margin-bottom: 6px;">
@@ -338,7 +276,6 @@
         </li>
     </ol>
 
-    {{--==================== PASAL 7 ====================--}}
     <div style="text-align: center; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">
         PASAL 7<br>
         KERUSAKAN DAN KEHILANGAN
@@ -352,7 +289,6 @@
         </li>
     </ol>
 
-    {{--==================== PASAL 8 ====================--}}
     <div style="text-align: center; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">
         PASAL 8<br>
         KEADAAN KAHAR
@@ -361,12 +297,8 @@
         <li style="margin-bottom: 6px;">
             Keadaan Kahar adalah peristiwa-peristiwa yang berada di luar kekuasaan dan kendali Para Pihak, telah dinyatakan resmi oleh pihak berwenang (instansi terkait), bukan merupakan akibat dari kelalaian Para Pihak dalam BAST Peminjaman ini dan yang dapat berdampak kepada kelangsungan BAST Peminjaman ini. Peristiwa-peristiwa yang termasuk dalam kategori Keadaan Kahar, antara lain:
             <ol type="a" style="margin-top: 4px; padding-left: 20px;">
-                <li style="margin-bottom: 4px;">
-                    Bencana alam (gempa bumi, tanah longsor/tanah bergerak, banjir, tsunami, serta letusan gunung berapi) dan bencana alam lainnya yang dinyatakan secara resmi oleh instansi terkait; atau
-                </li>
-                <li style="margin-bottom: 4px;">
-                    Perang, kerusuhan, dan gangguan sistem kendaraan dalam skala nasional maupun di seluruh dunia sehingga mengakibatkan tidak dapat berlanjutnya peminjaman kendaraan dinas operasional/fungsional.
-                </li>
+                <li style="margin-bottom: 4px;">Bencana alam (gempa bumi, tanah longsor/tanah bergerak, banjir, tsunami, serta letusan gunung berapi) dan bencana alam lainnya yang dinyatakan secara resmi oleh instansi terkait; atau</li>
+                <li style="margin-bottom: 4px;">Perang, kerusuhan, dan gangguan sistem kendaraan dalam skala nasional maupun di seluruh dunia sehingga mengakibatkan tidak dapat berlanjutnya peminjaman kendaraan dinas operasional/fungsional.</li>
             </ol>
         </li>
         <li style="margin-bottom: 6px;">
@@ -393,51 +325,29 @@
             </td>
         </tr>
         <tr>
-            {{-- TTE PIHAK PERTAMA (PENANGGUNG JAWAB) --}}
-            <td style="vertical-align: middle; text-align: center; padding: 2px 0;">
-                @if(!empty($tteData['penanggung_jawab']['signed']) && !empty($tteData['penanggung_jawab']['qr_code']))
-                    <img src="data:image/svg+xml;base64,{{ $tteData['penanggung_jawab']['qr_code'] }}" width="85" height="85" style="display: block; margin: 0 auto;">
-                @else
-                    <div style="height: 85px;"></div>
-                @endif
-            </td>
-
-            {{-- TTE PIHAK KEDUA (PEMINJAM) --}}
-            <td style="vertical-align: middle; text-align: center; padding: 2px 0;">
-                @if(!empty($tteData['peminjam']['signed']) && !empty($tteData['peminjam']['qr_code']))
-                    <img src="data:image/svg+xml;base64,{{ $tteData['peminjam']['qr_code'] }}" width="85" height="85" style="display: block; margin: 0 auto;">
-                @else
-                    <div style="height: 85px;"></div>
-                @endif
-            </td>
+            <td style="height: 75px;"></td>
+            <td style="height: 75px;"></td>
         </tr>
         <tr>
             <td style="vertical-align: top; text-align: center; padding: 0 4px;">
-                <strong><u>{{ $tteData['penanggung_jawab']['name'] }}</u></strong><br>
-                NIP. {{ $tteData['penanggung_jawab']['nip'] }}
+                <strong><u>{{ $booking->allocator->name ?? 'Penanggung Jawab BMN' }}</u></strong><br>
+                NIP. {{ $booking->allocator->nip ?? '-' }}
             </td>
             <td style="vertical-align: top; text-align: center; padding: 0 4px;">
-                <strong><u>{{ $tteData['peminjam']['name'] }}</u></strong><br>
-                NIP. {{ $tteData['peminjam']['nip'] }}
+                <strong><u>{{ $booking->user->name ?? '-' }}</u></strong><br>
+                NIP. {{ $booking->user->nip ?? '-' }}
             </td>
         </tr>
         <tr>
-            <td colspan="2" style="padding-top: 10px; text-align: center; vertical-align: top;">
+            <td colspan="2" style="padding-top: 15px; text-align: center; vertical-align: top;">
                 <strong>Mengetahui,</strong><br>
                 Kuasa Pengguna Barang/Pimpinan Unit Akuntansi<br>
                 Pembantu Kuasa Pengguna Barang,
 
-                {{-- TTE MENGETAHUI (APPROVER / ATASAN) --}}
-                <div style="padding: 2px 0;">
-                    @if(!empty($tteData['approver']['signed']) && !empty($tteData['approver']['qr_code']))
-                        <img src="data:image/svg+xml;base64,{{ $tteData['approver']['qr_code'] }}" width="85" height="85" style="display: block; margin: 0 auto;">
-                    @else
-                        <div style="height: 85px;"></div>
-                    @endif
-                </div>
+                <div style="height: 75px;"></div>
 
-                <strong><u>{{ $tteData['approver']['name'] }}</u></strong><br>
-                NIP. {{ $tteData['approver']['nip'] }}
+                <strong><u>{{ $booking->approver->name ?? 'Pejabat Berwenang' }}</u></strong><br>
+                NIP. {{ $booking->approver->nip ?? '-' }}
             </td>
         </tr>
     </table>

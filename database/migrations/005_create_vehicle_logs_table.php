@@ -18,8 +18,8 @@ return new class extends Migration
             
             // Check-Out Data (Keberangkatan)
             $table->dateTime('checked_out_at');
-            $table->integer('start_km');
-            $table->string('start_fuel_level', 20); // Sisa BBM saat Check-Out
+            $table->integer('start_km')->nullable();
+            $table->string('start_fuel_level', 20)->nullable(); // Sisa BBM saat Check-Out
             $table->string('start_photo')->nullable();
 
             // Check-In Data (Pengembalian)
@@ -30,6 +30,9 @@ return new class extends Migration
             $table->integer('distance_traveled')->nullable();
             $table->text('condition_notes')->nullable();
             $table->json('condition_photos')->nullable();
+            $table->boolean('is_verified_by_admin')->default(false)->after('condition_photos')->comment('Status verifikasi fisik oleh Admin Lapangan');
+            $table->text('admin_verification_notes')->nullable()->after('is_verified_by_admin')->comment('Catatan perbedaan temuan Admin Lapangan jika ada');
+            
 
             $table->timestamps();
         });

@@ -5,51 +5,31 @@
     <title>BAST Pengembalian Kendaraan Dinas</title>
     <link rel="shortcut icon" href="{{ asset('favicon.png') }}">
     <style>
-        /* 1. Pengaturan Halaman PDF (Ukuran Margin Kertas A4) */
         @page { margin: 1.5cm 2cm 1.5cm 2cm; }
-
-        /* 2. Pengaturan Font Dasar Seluruh Dokumen (Times New Roman) */
         body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.35; color: #000; }
-
-        /* 3. Pengaturan Tabel Kop Surat */
         .header-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
         .header-table td { vertical-align: middle; }
-
-        /* 4. Pengaturan Area Logo Komdigi (Kolom Kiri 15%) */
         .logo-container { width: 20%; text-align: left; }
         .logo-img { height: 90px; width: auto; }
-
-        /* 5. Pengaturan Teks Instansi Kop Surat (Kolom Kanan 85%) & Hirarki Ukuran */
         .header-text { width: 80%; text-align: left; padding-left: 5px; }
         .header-text h3 { font-size: 12pt; margin: 0; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.2; }
         .header-text h2 { font-size: 13.5pt; margin: 0; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.2; }
         .header-text h1 { font-size: 16pt; margin: 0; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.2; }
         .header-text p { font-size: 6pt; margin: 3px 0 0 0; color: #000; font-weight: normal; line-height: 1.2; }
-
-        /* 6. Garis Hitam Pembatas Kop Surat */
         .header-line { border: none; border-top: 2.5px solid #000; margin-top: 2px; margin-bottom: 18px; }
-
-        /* 7. Judul Dokumen (Misal: FORMULIR PERMOHONAN / BAST) */
         .title { text-align: center; font-weight: bold; font-size: 11pt; text-transform: uppercase; margin-top: 10px; margin-bottom: 20px; }
-
-        /* 8. Tabel Isian Data (Nama, NIP, Merek Kendaraan, dll) */
         .content-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
         .content-table td { padding: 3px 0; vertical-align: top; }
         .content-table td.label { width: 32%; }
         .content-table td.colon { width: 3%; text-align: center; }
         .content-table td.value { width: 65%; font-weight: bold; }
-
-        /* 9. Paragraf Pernyataan / Isi Pasal */
         .paragraph { text-align: justify; text-indent: 30px; margin-bottom: 12px; }
-
-        /* 10. Tabel Area Tanda Tangan */
         .ttd-table { width: 100%; margin-top: 25px; border-collapse: collapse; }
         .ttd-table td { width: 50%; text-align: center; vertical-align: top; }
     </style>
 </head>
 <body>
 
-    {{-- KOP SURAT BALMON SEMARANG --}}
     <table class="header-table">
         <tr>
             <td class="logo-container">
@@ -69,8 +49,8 @@
     </table>
     <hr class="header-line">
 
-   <div class="title" style="text-align: center; font-weight: bold; font-size: 11pt; text-transform: uppercase; margin-top: 10px; margin-bottom: 15px;">
-        <u>BERITA ACARA SERAH TERIMA PENGEMBALIAN KENDARAAN DINAS OPERASIONAL/FUNGSIONAL</u><br>
+    <div class="title" style="text-align: center; font-weight: bold; font-size: 11pt; text-transform: uppercase; margin-top: 10px; margin-bottom: 15px;">
+        BERITA ACARA SERAH TERIMA PENGEMBALIAN KENDARAAN DINAS OPERASIONAL/FUNGSIONAL<br>
         <span style="font-weight: normal; font-size: 10pt; text-transform: none; display: inline-block; margin-top: 4px;">
             Nomor: BAST-KMB/{{ $booking->letter_number }}
         </span>
@@ -78,38 +58,39 @@
 
     @php
         $retDate = $booking->log && $booking->log->checked_in_at ? \Carbon\Carbon::parse($booking->log->checked_in_at) : $booking->end_date;
+        $checker = $booking->returnChecker ?? $booking->allocator;
+        $approver = $booking->returnApprover ?? $booking->approver;
     @endphp
 
     <p style="text-align: justify; margin-bottom: 10px;">
-        Pada hari ini, <strong>{{ $retDate->isoFormat('dddd') }}</strong>, tanggal <strong>{{ $retDate->isoFormat('D') }}</strong> bulan <strong>{{ $retDate->isoFormat('MMMM') }}</strong> tahun <strong>{{ $retDate->isoFormat('YYYY') }}</strong>, bertempat di Balai Monitor Spektrum Frekuensi Radio dan Infrastruktur Digital Kelas I Semarang, kami yang bertanda tangan di bawah ini:
+        Pada hari ini, <strong>{{ $retDate->isoFormat('dddd') }}</strong>, tanggal <strong>{{ $retDate->isoFormat('D') }}</strong> bulan <strong>{{ $retDate->isoFormat('MMMM') }}</strong> tahun <strong>{{ $retDate->isoFormat('YYYY') }}</strong>, bertempat di Balai Monitor Spektrum Frekuensi Radio dan Infrastruktur Digital Kelas I Semarang, sehubungan dengan telah selesainya pelaksanaan tugas berdasarkan Surat Tugas Nomor <strong>{{ $booking->letter_number }}</strong>, kami yang bertanda tangan di bawah ini:
     </p>
 
-    {{-- TABEL IDENTITAS PARA PIHAK --}}
     <table class="content-table" style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-        {{-- PIHAK PERTAMA --}}
+        {{-- PIHAK PERTAMA (PENANGGUNG JAWAB/PENGECEK BMN) --}}
         <tr>
             <td style="width: 3%; vertical-align: top;">1.</td>
             <td style="width: 25%;">Nama</td>
             <td style="width: 3%; text-align: center;">:</td>
-            <td><strong>{{ $booking->returnApprover->name ?? $booking->approver->name ?? 'Penanggung Jawab BMN' }}</strong></td>
+            <td><strong>{{ $checker->name ?? 'Penanggung Jawab BMN' }}</strong></td>
         </tr>
         <tr>
             <td></td>
             <td>NIP</td>
             <td style="text-align: center;">:</td>
-            <td>{{ $booking->returnApprover->nip ?? $booking->approver->nip ?? '-' }}</td>
+            <td>{{ $checker->nip ?? '-' }}</td>
         </tr>
         <tr>
             <td></td>
             <td>Pangkat/Golongan</td>
             <td style="text-align: center;">:</td>
-            <td>{{ $booking->returnApprover->pangkat ?? $booking->approver->pangkat ?? '-' }}</td>
+            <td>{{ $checker->pangkat ?? '-' }}</td>
         </tr>
         <tr>
             <td></td>
             <td>Jabatan</td>
             <td style="text-align: center;">:</td>
-            <td>{{ $booking->returnApprover->jabatan ?? $booking->approver->jabatan ?? 'Pengelola BMN' }}</td>
+            <td>{{ $checker->jabatan ?? 'Pengelola BMN' }}</td>
         </tr>
         <tr>
             <td></td>
@@ -118,12 +99,12 @@
             </td>
         </tr>
 
-        {{-- PIHAK KEDUA --}}
+        {{-- PIHAK KEDUA (PEMINJAM) --}}
         <tr>
             <td style="vertical-align: top;">2.</td>
             <td>Nama</td>
             <td style="text-align: center;">:</td>
-            <td><strong>{{ $booking->user->name }}</strong></td>
+            <td><strong>{{ $booking->user->name ?? '-' }}</strong></td>
         </tr>
         <tr>
             <td></td>
@@ -189,11 +170,6 @@
                 <li style="margin-bottom: 2px;">Kartu BBM (RFID atau sejenisnya jika ada); dan</li>
                 <li style="margin-bottom: 2px;">Kelengkapan kendaraan lainnya (jika ada).</li>
             </ol>
-            {{-- @if($booking->log && $booking->log->condition_notes)
-                <div style="margin-top: 6px; font-style: italic; color: #444;">
-                    Catatan Kondisi Pengembalian: "{{ $booking->log->condition_notes }}"
-                </div>
-            @endif --}}
         </li>
     </ol>
 
@@ -214,51 +190,29 @@
             </td>
         </tr>
         <tr>
-            {{-- TTE PIHAK PERTAMA (PENANGGUNG JAWAB) --}}
-            <td style="vertical-align: middle; text-align: center; padding: 2px 0;">
-                @if(!empty($tteData['penanggung_jawab']['signed']) && !empty($tteData['penanggung_jawab']['qr_code']))
-                    <img src="data:image/svg+xml;base64,{{ $tteData['penanggung_jawab']['qr_code'] }}" width="85" height="85" style="display: block; margin: 0 auto;">
-                @else
-                    <div style="height: 85px;"></div>
-                @endif
-            </td>
-
-            {{-- TTE PIHAK KEDUA (PEMINJAM) --}}
-            <td style="vertical-align: middle; text-align: center; padding: 2px 0;">
-                @if(!empty($tteData['peminjam']['signed']) && !empty($tteData['peminjam']['qr_code']))
-                    <img src="data:image/svg+xml;base64,{{ $tteData['peminjam']['qr_code'] }}" width="85" height="85" style="display: block; margin: 0 auto;">
-                @else
-                    <div style="height: 85px;"></div>
-                @endif
-            </td>
+            <td style="height: 75px;"></td>
+            <td style="height: 75px;"></td>
         </tr>
         <tr>
             <td style="vertical-align: top; text-align: center; padding: 0 4px;">
-                <strong><u>{{ $tteData['penanggung_jawab']['name'] }}</u></strong><br>
-                NIP. {{ $tteData['penanggung_jawab']['nip'] }}
+                <strong><u>{{ $checker->name ?? 'Penanggung Jawab BMN' }}</u></strong><br>
+                NIP. {{ $checker->nip ?? '-' }}
             </td>
             <td style="vertical-align: top; text-align: center; padding: 0 4px;">
-                <strong><u>{{ $tteData['peminjam']['name'] }}</u></strong><br>
-                NIP. {{ $tteData['peminjam']['nip'] }}
+                <strong><u>{{ $booking->user->name ?? '-' }}</u></strong><br>
+                NIP. {{ $booking->user->nip ?? '-' }}
             </td>
         </tr>
         <tr>
-            <td colspan="2" style="padding-top: 10px; text-align: center; vertical-align: top;">
+            <td colspan="2" style="padding-top: 15px; text-align: center; vertical-align: top;">
                 <strong>Mengetahui,</strong><br>
                 Kuasa Pengguna Barang/Pimpinan Unit Akuntansi<br>
                 Pembantu Kuasa Pengguna Barang,
 
-                {{-- TTE MENGETAHUI (APPROVER / ATASAN) --}}
-                <div style="padding: 2px 0;">
-                    @if(!empty($tteData['approver']['signed']) && !empty($tteData['approver']['qr_code']))
-                        <img src="data:image/svg+xml;base64,{{ $tteData['approver']['qr_code'] }}" width="85" height="85" style="display: block; margin: 0 auto;">
-                    @else
-                        <div style="height: 85px;"></div>
-                    @endif
-                </div>
+                <div style="height: 75px;"></div>
 
-                <strong><u>{{ $tteData['approver']['name'] }}</u></strong><br>
-                NIP. {{ $tteData['approver']['nip'] }}
+                <strong><u>{{ $approver->name ?? 'Pejabat Berwenang' }}</u></strong><br>
+                NIP. {{ $approver->nip ?? '-' }}
             </td>
         </tr>
     </table>

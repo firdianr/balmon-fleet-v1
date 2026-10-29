@@ -129,4 +129,19 @@ class Booking extends Model
     {
         return $this->belongsTo(User::class, 'returned_approved_by');
     }
+
+    public function checklists()
+    {
+        return $this->hasMany(TripChecklist::class);
+    }
+
+    public function startChecklist()
+    {
+        return $this->hasOne(TripChecklist::class)->where('type', 'start');
+    }
+
+    public function endChecklist()
+    {
+        return $this->hasOne(TripChecklist::class)->where('type', 'end');
+    }
 }

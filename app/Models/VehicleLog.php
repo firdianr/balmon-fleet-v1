@@ -24,6 +24,8 @@ class VehicleLog extends Model
         'distance_traveled',
         'condition_notes',
         'condition_photos',
+        'is_verified_by_admin',
+        'admin_verification_notes',
     ];
 
     protected $casts = [
@@ -57,5 +59,20 @@ class VehicleLog extends Model
             return $this->end_km - $this->start_km;
         }
         return null;
+    }
+
+    public function checklists()
+    {
+        return $this->hasMany(TripChecklist::class, 'vehicle_log_id');
+    }
+
+    public function startChecklist()
+    {
+        return $this->hasOne(TripChecklist::class, 'vehicle_log_id')->where('type', 'start');
+    }
+
+    public function endChecklist()
+    {
+        return $this->hasOne(TripChecklist::class, 'vehicle_log_id')->where('type', 'end');
     }
 }

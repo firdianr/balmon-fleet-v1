@@ -4,51 +4,31 @@
     <meta charset="UTF-8">
     <title>Formulir Permohonan Peminjaman Kendaraan Dinas</title>
     <style>
-        /* 1. Pengaturan Halaman PDF (Ukuran Margin Kertas A4) */
         @page { margin: 1.5cm 2cm 1.5cm 2cm; }
-
-        /* 2. Pengaturan Font Dasar Seluruh Dokumen (Times New Roman) */
         body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.35; color: #000; }
-
-        /* 3. Pengaturan Tabel Kop Surat */
         .header-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
         .header-table td { vertical-align: middle; }
-
-        /* 4. Pengaturan Area Logo Komdigi (Kolom Kiri 15%) */
         .logo-container { width: 20%; text-align: left; }
         .logo-img { height: 90px; width: auto; }
-
-        /* 5. Pengaturan Teks Instansi Kop Surat (Kolom Kanan 85%) & Hirarki Ukuran */
         .header-text { width: 80%; text-align: left; padding-left: 5px; }
         .header-text h3 { font-size: 12pt; margin: 0; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.2; }
         .header-text h2 { font-size: 13.5pt; margin: 0; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.2; }
         .header-text h1 { font-size: 16pt; margin: 0; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.2; }
         .header-text p { font-size: 6pt; margin: 3px 0 0 0; color: #000; font-weight: normal; line-height: 1.2; }
-
-        /* 6. Garis Hitam Pembatas Kop Surat */
         .header-line { border: none; border-top: 2.5px solid #000; margin-top: 2px; margin-bottom: 18px; }
-
-        /* 7. Judul Dokumen (Misal: FORMULIR PERMOHONAN / BAST) */
         .title { text-align: center; font-weight: bold; font-size: 11pt; text-transform: uppercase; margin-top: 10px; margin-bottom: 20px; }
-
-        /* 8. Tabel Isian Data (Nama, NIP, Merek Kendaraan, dll) */
         .content-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
         .content-table td { padding: 3px 0; vertical-align: top; }
         .content-table td.label { width: 32%; }
         .content-table td.colon { width: 3%; text-align: center; }
         .content-table td.value { width: 65%; font-weight: bold; }
-
-        /* 9. Paragraf Pernyataan / Isi Pasal */
         .paragraph { text-align: justify; text-indent: 30px; margin-bottom: 12px; }
-
-        /* 10. Tabel Area Tanda Tangan */
         .ttd-table { width: 100%; margin-top: 25px; border-collapse: collapse; }
         .ttd-table td { width: 50%; text-align: center; vertical-align: top; }
     </style>
 </head>
 <body>
 
-    {{-- KOP SURAT BALMON SEMARANG --}}
     <table class="header-table">
         <tr>
             <td class="logo-container">
@@ -151,15 +131,8 @@
             <td>Semarang, {{ $booking->created_at->isoFormat('D MMMM YYYY') }}<br>Peminjam,</td>
         </tr>
         <tr>
-            <td style="height: 100px; text-align: center; vertical-align: middle;">
-                {{-- Spasium kosong jika belum ada QR Code --}}
-            </td>
-            <td style="height: 100px; text-align: center; vertical-align: middle;">
-                {{-- TAMPILKAN QR CODE TTE JIKA VEHICLE_ID TERISI --}}
-                @if($booking->vehicle_id && isset($qrCode))
-                    <img src="data:image/svg+xml;base64,{{ $qrCode }}" alt="TTE QR Code" style="width: 100px; height: 100px; margin-top: 5px; margin-bottom: 5px;">
-                @endif
-            </td>
+            <td></td>
+            <td style="height: 75px;"></td>
         </tr>
         <tr>
             <td></td>
