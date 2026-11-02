@@ -113,28 +113,8 @@
     }">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
-            {{-- ERROR NOTIFICATION --}}
-            @if ($errors->any())
-                <div class="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-1 flex items-start gap-2.5">
-                    <!-- Icon Alert Triangle Rose -->
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-rose-600 stroke-2 shrink-0 mt-0.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                        <line x1="12" y1="9" x2="12" y2="13"/>
-                        <line x1="12" y1="17" x2="12.01" y2="17"/>
-                    </svg>
-                    <div>
-                        <p class="font-bold text-sm">Terdapat beberapa kesalahan input:</p>
-                        <ul class="list-disc list-inside space-y-0.5 mt-1">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-            @endif
-
             {{-- FORM EDIT PERMOHONAN --}}
-            <div class="bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-xs">
+            <div class="bg-white pt-2 pb-6 sm:p-8 rounded-xl border border-gray-200 shadow-xs">
                 <form x-ref="editBookingForm" 
                     action="{{ route('bookings.update', $booking) }}" 
                     method="POST" 

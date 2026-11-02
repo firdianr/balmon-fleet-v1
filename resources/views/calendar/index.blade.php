@@ -475,7 +475,6 @@
 
     </div>
 
-    {{-- SCRIPT ALPINE JS UNTUK DUKUNGAN KALENDER & LOGIKA TANGGAL --}}
     <script>
         function calendarApp() {
             return {
@@ -491,7 +490,6 @@
                 availableVehicles: [],
                 bookedVehicles: [],
 
-                // HELPER: Kelas Warna Tailwind berdasarkan Status
                 getStatusBgClass(status) {
                     switch (status) {
                         case 'pending':   return 'bg-yellow-500';
@@ -504,7 +502,6 @@
                     }
                 },
 
-                // HELPER: Normalisasi Tanggal ke YYYY-MM-DD
                 cleanDate(dateStr) {
                     if (!dateStr) return '';
                     return String(dateStr).substring(0, 10);
@@ -512,24 +509,43 @@
 
                 get calendarDays() {
                     const days = [];
-                    const firstDay = new Date(this.currentYear, this.currentMonth, 1).getDay();
-                    const totalDays = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-                    const prevMonthTotalDays = new Date(this.currentYear, this.currentMonth, 0).getDate();
-                    const todayStr = new Date().toISOString().split('T')[0];
+                    const year = parseInt(this.currentYear, 10);
+                    const month = parseInt(this.currentMonth, 10);
 
-                    // Hari bulan sebelumnya
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const totalDays = new Date(year, month + 1, 0).getDate();
+                    const prevMonthTotalDays = new Date(year, month, 0).getDate();
+
+                    const now = new Date();
+                    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+                    // Hitung bulan & tahun sebelumnya untuk membuat dateString unik
+                    const prevMonth = month === 0 ? 11 : month - 1;
+                    const prevYear = month === 0 ? year - 1 : year;
+                    const prevMonthStr = String(prevMonth + 1).padStart(2, '0');
+
+                    // Padding tanggal bulan sebelumnya
                     for (let i = firstDay - 1; i >= 0; i--) {
                         const dayNum = prevMonthTotalDays - i;
-                        days.push({ dayNumber: dayNum, isCurrentMonth: false, isToday: false, bookings: [] });
+                        const dayStr = String(dayNum).padStart(2, '0');
+                        const paddingDateString = `${prevYear}-${prevMonthStr}-${dayStr}`;
+
+                        days.push({ 
+                            dayNumber: dayNum, 
+                            dateString: paddingDateString, 
+                            isCurrentMonth: false, 
+                            isToday: false, 
+                            bookedVehiclesCount: 0, 
+                            bookings: [] 
+                        });
                     }
 
-                    // Hari bulan ini
+                    // Hari bulan berjalan
                     for (let d = 1; d <= totalDays; d++) {
-                        const monthStr = String(this.currentMonth + 1).padStart(2, '0');
+                        const monthStr = String(month + 1).padStart(2, '0');
                         const dayStr = String(d).padStart(2, '0');
-                        const dateString = `${this.currentYear}-${monthStr}-${dayStr}`;
+                        const dateString = `${year}-${monthStr}-${dayStr}`;
 
-                        // Normalisasi start_date dan end_date sebelum membandingkan
                         const bookingsOnDay = this.allEvents.filter(e => {
                             const startDate = this.cleanDate(e.start_date);
                             const endDate = this.cleanDate(e.end_date);
@@ -550,6 +566,8 @@
                 },
 
                 previousMonth() {
+                    this.currentMonth = parseInt(this.currentMonth, 10);
+                    this.currentYear = parseInt(this.currentYear, 10);
                     if (this.currentMonth === 0) {
                         this.currentMonth = 11;
                         this.currentYear--;
@@ -559,6 +577,8 @@
                 },
 
                 nextMonth() {
+                    this.currentMonth = parseInt(this.currentMonth, 10);
+                    this.currentYear = parseInt(this.currentYear, 10);
                     if (this.currentMonth === 11) {
                         this.currentMonth = 0;
                         this.currentYear++;
@@ -568,8 +588,9 @@
                 },
 
                 goToToday() {
-                    this.currentMonth = new Date().getMonth();
-                    this.currentYear = new Date().getFullYear();
+                    const now = new Date();
+                    this.currentMonth = now.getMonth();
+                    this.currentYear = now.getFullYear();
                 },
 
                 selectDate(day) {
@@ -578,20 +599,17 @@
                     this.selectedDateFormatted = `${day.dayNumber} ${this.monthNames[this.currentMonth]} ${this.currentYear}`;
                     const targetDate = day.dateString;
 
-                    // Filter booking aktif (approved dan on_trip) untuk menandai mobil yang sedang TIDAK BISA dipinjam
                     const activeBookings = this.allEvents.filter(e => {
                         const startDate = this.cleanDate(e.start_date);
                         const endDate = this.cleanDate(e.end_date);
                         return targetDate >= startDate && targetDate <= endDate;
                     });
                     
-                    // Mobil hanya dianggap tidak tersedia jika statusnya approved atau on_trip pada tanggal tersebut
                     const busyVehicleIds = activeBookings
                         .filter(b => ['approved', 'on_trip'].includes(b.status))
                         .map(b => b.vehicle_id)
                         .filter(Boolean);
 
-                    // Pisahkan armada tersedia & dipinjam/terikat agenda
                     this.availableVehicles = this.allVehicles.filter(v => !busyVehicleIds.includes(v.id) && v.status !== 'maintenance');
                     this.bookedVehicles = activeBookings.map(b => {
                         return {

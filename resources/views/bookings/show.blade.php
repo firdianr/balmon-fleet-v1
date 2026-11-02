@@ -687,7 +687,7 @@
                                 </div>
                             @else
                                 <div class="p-3.5 bg-gray-50 rounded-xl border border-gray-200 text-xs sm:text-sm font-bold text-gray-700">
-                                    Lepas Kunci (Tanpa Driver)
+                                    Belum Ditetapkan
                                 </div>
                             @endif
                         </div>

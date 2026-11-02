@@ -178,7 +178,7 @@
                     <td style="text-align: center;">:</td>
                     <td>
                         {{ $booking->start_date->isoFormat('D MMMM YYYY') }} s.d. {{ $booking->end_date->isoFormat('D MMMM YYYY') }} 
-                        ({{ ceil($booking->start_date->diffInDays($booking->end_date))+1 ?: 1 }} hari)
+                        ({{ ceil($booking->start_date->diffInDays($booking->end_date)) ?: 1 }} hari)
                     </td>
                 </tr>
                 <tr>

@@ -40,4 +40,9 @@ return [
         'model'   => env('GEMINI_MODEL', 'gemini-flash-latest'),
     ],
 
+    'wa_gateway' => [
+        'host' => env('WA_GATEWAY_HOST', 'http://localhost'),
+        'port' => env('WA_GATEWAY_PORT', '3000'),
+    ],
+
 ];

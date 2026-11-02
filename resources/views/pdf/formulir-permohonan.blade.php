@@ -100,7 +100,7 @@
             <td class="colon">:</td>
             <td class="value">
                 {{ $booking->start_date->isoFormat('D MMMM YYYY') }} s.d. {{ $booking->end_date->isoFormat('D MMMM YYYY') }} 
-                ({{ ceil($booking->start_date->diffInDays($booking->end_date))+1 ?: 1 }} Hari)
+                ({{ ceil($booking->start_date->diffInDays($booking->end_date)) ?: 1 }} Hari)
             </td>
         </tr>
         <tr>

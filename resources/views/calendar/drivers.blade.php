@@ -22,7 +22,7 @@
                     <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h6l2 4m-8-4v8m0-8V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v9h2m8 0H9m4 0h2m4 0h2v-4m0 0h-5m3.5 5.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Zm-10 0a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z"/>
                     </svg>
-                    <span>Kalender Armada</span>
+                    <span>Jadwal Armada</span>
                 </a>
 
                 @if(in_array($currentUser->role, ['admin_app', 'admin_lap', 'approver']))
@@ -590,20 +590,41 @@
 
                 get calendarDays() {
                     const days = [];
-                    const firstDay = new Date(this.currentYear, this.currentMonth, 1).getDay();
-                    const totalDays = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-                    const prevMonthTotalDays = new Date(this.currentYear, this.currentMonth, 0).getDate();
-                    const todayStr = new Date().toISOString().split('T')[0];
+                    const year = parseInt(this.currentYear, 10);
+                    const month = parseInt(this.currentMonth, 10);
 
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const totalDays = new Date(year, month + 1, 0).getDate();
+                    const prevMonthTotalDays = new Date(year, month, 0).getDate();
+
+                    const now = new Date();
+                    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+                    // Hitung bulan & tahun sebelumnya untuk membuat dateString unik
+                    const prevMonth = month === 0 ? 11 : month - 1;
+                    const prevYear = month === 0 ? year - 1 : year;
+                    const prevMonthStr = String(prevMonth + 1).padStart(2, '0');
+
+                    // Padding tanggal bulan sebelumnya
                     for (let i = firstDay - 1; i >= 0; i--) {
                         const dayNum = prevMonthTotalDays - i;
-                        days.push({ dayNumber: dayNum, isCurrentMonth: false, isToday: false, items: [] });
+                        const dayStr = String(dayNum).padStart(2, '0');
+                        const paddingDateString = `${prevYear}-${prevMonthStr}-${dayStr}`;
+
+                        days.push({ 
+                            dayNumber: dayNum, 
+                            dateString: paddingDateString, 
+                            isCurrentMonth: false, 
+                            isToday: false, 
+                            items: [] 
+                        });
                     }
 
+                    // Hari bulan berjalan
                     for (let d = 1; d <= totalDays; d++) {
-                        const monthStr = String(this.currentMonth + 1).padStart(2, '0');
+                        const monthStr = String(month + 1).padStart(2, '0');
                         const dayStr = String(d).padStart(2, '0');
-                        const dateString = `${this.currentYear}-${monthStr}-${dayStr}`;
+                        const dateString = `${year}-${monthStr}-${dayStr}`;
 
                         let bookingsOnDay = this.allBookings.filter(b => {
                             const start = this.cleanDate(b.start_date);
@@ -638,6 +659,8 @@
                 },
 
                 previousMonth() {
+                    this.currentMonth = parseInt(this.currentMonth, 10);
+                    this.currentYear = parseInt(this.currentYear, 10);
                     if (this.currentMonth === 0) {
                         this.currentMonth = 11;
                         this.currentYear--;
@@ -647,6 +670,8 @@
                 },
 
                 nextMonth() {
+                    this.currentMonth = parseInt(this.currentMonth, 10);
+                    this.currentYear = parseInt(this.currentYear, 10);
                     if (this.currentMonth === 11) {
                         this.currentMonth = 0;
                         this.currentYear++;
@@ -656,8 +681,9 @@
                 },
 
                 goToToday() {
-                    this.currentMonth = new Date().getMonth();
-                    this.currentYear = new Date().getFullYear();
+                    const now = new Date();
+                    this.currentMonth = now.getMonth();
+                    this.currentYear = now.getFullYear();
                 },
 
                 selectDate(day) {
