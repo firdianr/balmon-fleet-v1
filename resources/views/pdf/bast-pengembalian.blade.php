@@ -63,7 +63,19 @@
     @endphp
 
     <p style="text-align: justify; margin-bottom: 10px;">
-        Pada hari ini, <strong>{{ $retDate->isoFormat('dddd') }}</strong>, tanggal <strong>{{ $retDate->isoFormat('D') }}</strong> bulan <strong>{{ $retDate->isoFormat('MMMM') }}</strong> tahun <strong>{{ $retDate->isoFormat('YYYY') }}</strong>, bertempat di Balai Monitor Spektrum Frekuensi Radio dan Infrastruktur Digital Kelas I Semarang, sehubungan dengan telah selesainya pelaksanaan tugas berdasarkan Surat Tugas Nomor <strong>{{ $booking->letter_number }}</strong>, kami yang bertanda tangan di bawah ini:
+        Pada hari ini, <strong>{{ $retDate->isoFormat('dddd') }}</strong>, tanggal <strong>{{ $retDate->isoFormat('D') }}</strong> bulan <strong>{{ $retDate->isoFormat('MMMM') }}</strong> tahun <strong>{{ $retDate->isoFormat('YYYY') }}</strong>, bertempat di Balai Monitor Spektrum Frekuensi Radio dan Infrastruktur Digital Kelas I Semarang, sehubungan dengan telah selesainya pelaksanaan tugas 
+        
+        @if($booking->letter_type === 'surat_tugas')
+            berdasarkan Surat Tugas Nomor <strong>{{ $booking->letter_number }}</strong>,
+        @elseif($booking->letter_type === 'nota_dinas')
+            @if(!empty($booking->return_letter_number))
+                berdasarkan Nota Dinas Nomor <strong>{{ $booking->letter_number }}</strong> dan Surat Tugas Nomor <strong>{{ $booking->return_letter_number }}</strong>,
+            @else
+                berdasarkan Nota Dinas Nomor <strong>{{ $booking->letter_number }}</strong>,
+            @endif
+        @endif
+        
+        kami yang bertanda tangan di bawah ini:
     </p>
 
     <table class="content-table" style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
@@ -162,21 +174,102 @@
                 </tr>
             </table>
         </li>
-        <li style="margin-bottom: 8px;">
-            Kendaraan dinas operasional/fungsional diserahkan dalam kondisi baik dan lengkap, dengan kelengkapannya meliputi:
-            <ol type="a" style="margin-top: 4px; padding-left: 20px;">
-                <li style="margin-bottom: 2px;">STNK;</li>
-                <li style="margin-bottom: 2px;">Kunci;</li>
-                <li style="margin-bottom: 2px;">Kartu BBM (RFID atau sejenisnya jika ada); dan</li>
-                <li style="margin-bottom: 2px;">Kelengkapan kendaraan lainnya (jika ada).</li>
-            </ol>
+        @php
+            $endChecklist = $booking->endChecklist;
+            $rawItems = [];
+            if ($endChecklist) {
+                $rawItems = is_array($endChecklist->items) 
+                    ? $endChecklist->items 
+                    : json_decode($endChecklist->items ?? '[]', true);
+            }
+
+            // Urutkan: Kelengkapan ('completeness') terlebih dahulu, baru Fisik Kendaraan ('condition')
+            $sortedItems = collect($rawItems)->sortBy(function ($item) {
+                return ($item['category'] ?? '') === 'completeness' ? 1 : 2;
+            })->values()->all();
+        @endphp
+
+        <li style="margin-bottom: 6px;">
+            Kendaraan dinas operasional/fungsional dikembalikan dengan hasil pemeriksaan fisik dan kelengkapan sebagai berikut:
+
+            {{-- TABEL CHECKLIST DINAMIS --}}
+            <table style="width: 100%; border-collapse: collapse; margin-top: 6px; margin-bottom: 6px; font-size: 10.5px; page-break-inside: avoid;">
+                <thead>
+                    <tr style="background-color: #f3f4f6; text-align: left;">
+                        <th style="border: 1px solid #cbd5e1; padding: 5px 7px;">Item Pemeriksaan Kepulangan</th>
+                        <th style="border: 1px solid #cbd5e1; padding: 5px 7px; width: 110px; text-align: center;">Kategori</th>
+                        <th style="border: 1px solid #cbd5e1; padding: 5px 7px; width: 120px; text-align: center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($sortedItems as $item)
+                        @php
+                            $isCondition = ($item['category'] ?? '') === 'condition';
+                            $isChecked   = !empty($item['is_checked']);
+                            
+                            // Tentukan teks status yang aman untuk DomPDF (Tanpa Karakter Simbol Unicode)
+                            if ($isCondition) {
+                                $statusText = $isChecked ? 'Baik / Normal' : 'Bermasalah';
+                            } else {
+                                $statusText = $isChecked ? 'Ada / Lengkap' : 'Tidak Ada';
+                            }
+                        @endphp
+                        <tr>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px 6px;">{{ $item['name'] }}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px 6px; text-align: center; color: #475569;">
+                                {{ $isCondition ? 'Fisik Kendaraan' : 'Kelengkapan' }}
+                            </td>
+                            <td style="border: 1px solid #cbd5e1; padding: 4px 6px; text-align: center; font-weight: bold; color: {{ $isChecked ? '#059669' : '#dc2626' }};">
+                                {{ $statusText }}
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="3" style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; color: #64748b;">
+                                Belum ada data checklist pengembalian.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+
+            {{-- INFORMASI STATUS KEBERSIHAN & CATATAN PENGEMBALIAN --}}
+            <div style="page-break-inside: avoid;">
+                @if($endChecklist)
+                    <div style="margin-top: 4px; font-size: 10.5px;">
+                        <strong>Status Kebersihan Armada:</strong> 
+                        <span style="font-weight: bold; color: {{ $endChecklist->is_washed ? '#059669' : '#d97706' }};">
+                            {{ $endChecklist->is_washed ? 'Dikembalikan Dalam Kondisi Bersih / Sudah Dicuci' : 'Perlu Pembersihan Lebih Lanjut' }}
+                        </span>
+                    </div>
+                @endif
+
+                @if(($endChecklist && $endChecklist->notes) || ($booking->log && $booking->log->admin_verification_notes))
+                    <div style="margin-top: 6px; padding: 6px; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; color: #991b1b; font-size: 10px;">
+                        @if($endChecklist && $endChecklist->notes)
+                            <div><strong>Catatan Driver/Pemohon:</strong> {{ $endChecklist->notes }}</div>
+                        @endif
+                        @if($booking->log && $booking->log->admin_verification_notes)
+                            <div style="margin-top: 2px;"><strong>Catatan Verifikasi Admin Lapangan:</strong> {{ $booking->log->admin_verification_notes }}</div>
+                        @endif
+                    </div>
+                @endif
+            </div>
         </li>
     </ol>
 
-    <br><br>
     <p style="text-align: justify; margin-top: 15px; margin-bottom: 25px;">
         Demikian Berita Acara Serah Terima ini dibuat sebagai dasar pengembalian dan pengendalian terhadap penggunaan kendaraan dinas operasional/fungsional untuk digunakan sebagaimana mestinya.
     </p>
+
+    @php
+        $sigAdminLapReturn = $booking->getSignature('bast_pengembalian', 'admin_lap');
+        $sigPemohonReturn  = $booking->getSignature('bast_pengembalian', 'pemohon');
+        $sigApproverReturn = $booking->getSignature('bast_pengembalian', 'approver');
+
+        $checker  = $booking->returnChecker ?? ($sigAdminLapReturn->user ?? null);
+        $approver = $booking->returnApprover ?? ($sigApproverReturn->user ?? null);
+    @endphp
 
     <table class="ttd-table" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
         <tr>
@@ -190,8 +283,25 @@
             </td>
         </tr>
         <tr>
-            <td style="height: 75px;"></td>
-            <td style="height: 75px;"></td>
+            {{-- TTD Admin Lapangan / Checker --}}
+            <td style="height: 75px; vertical-align: middle; text-align: center;">
+                @if($sigAdminLapReturn && $sigAdminLapReturn->signature_path && file_exists(public_path('storage/' . $sigAdminLapReturn->signature_path)))
+                    <img src="{{ public_path('storage/' . $sigAdminLapReturn->signature_path) }}" 
+                        style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
+                @else
+                    <div style="height: 70px;"></div>
+                @endif
+            </td>
+
+            {{-- TTD Pemohon --}}
+            <td style="height: 75px; vertical-align: middle; text-align: center;">
+                @if($sigPemohonReturn && $sigPemohonReturn->signature_path && file_exists(public_path('storage/' . $sigPemohonReturn->signature_path)))
+                    <img src="{{ public_path('storage/' . $sigPemohonReturn->signature_path) }}" 
+                        style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
+                @else
+                    <div style="height: 70px;"></div>
+                @endif
+            </td>
         </tr>
         <tr>
             <td style="vertical-align: top; text-align: center; padding: 0 4px;">
@@ -209,7 +319,15 @@
                 Kuasa Pengguna Barang/Pimpinan Unit Akuntansi<br>
                 Pembantu Kuasa Pengguna Barang,
 
-                <div style="height: 75px;"></div>
+                {{-- TTD Approver --}}
+                <div style="height: 75px; vertical-align: middle; text-align: center; margin: 5px 0;">
+                    @if($sigApproverReturn && $sigApproverReturn->signature_path && file_exists(public_path('storage/' . $sigApproverReturn->signature_path)))
+                        <img src="{{ public_path('storage/' . $sigApproverReturn->signature_path) }}" 
+                            style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
+                    @else
+                        <div style="height: 70px;"></div>
+                    @endif
+                </div>
 
                 <strong><u>{{ $approver->name ?? 'Pejabat Berwenang' }}</u></strong><br>
                 NIP. {{ $approver->nip ?? '-' }}

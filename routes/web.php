@@ -7,6 +7,7 @@ use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DraftBookingController;
 use App\Http\Controllers\DriverCalendarController;
+use App\Http\Controllers\MasterChecklistController;
 use App\Http\Controllers\PdfController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
@@ -55,7 +56,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [DraftBookingController::class, 'index'])->name('index');
         Route::get('/create', [DraftBookingController::class, 'create'])->name('create');
         Route::post('/', [DraftBookingController::class, 'store'])->name('store');
-        Route::post('/{draftBooking}/convert', [DraftBookingController::class, 'convertToBooking'])->name('convert');
+        Route::get('/{draftBooking}/edit', [DraftBookingController::class, 'edit'])->name('edit');
+        Route::put('/{draftBooking}', [DraftBookingController::class, 'update'])->name('update');
+        Route::post('/{draftBooking}/review', [DraftBookingController::class, 'review'])->name('review');
+        Route::delete('/{draftBooking}', [DraftBookingController::class, 'destroy'])->name('destroy');
     });
 
     // ------------------------------------------------------------------
@@ -66,6 +70,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/create', [BookingController::class, 'create'])->name('create');
         Route::post('/parse-document', [BookingController::class, 'parseDocument'])->name('parse_document');
         Route::post('/', [BookingController::class, 'store'])->name('store');
+
+        // === ROUTE BARU: LANJUTAN DARI DRAFT ===
+        Route::get('/from-draft/{draftBooking}', [BookingController::class, 'createFromDraft'])->name('create_from_draft');
+        Route::post('/from-draft/{draftBooking}', [BookingController::class, 'storeFromDraft'])->name('store_from_draft');
+        // ======================================
 
         Route::get('/{booking:letter_slug}', [BookingController::class, 'show'])->name('show');
         Route::get('/{booking:letter_slug}/edit', [BookingController::class, 'edit'])->name('edit');
@@ -115,6 +124,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/{vehicle:slug}', [VehicleController::class, 'update'])->name('update');
             Route::delete('/{vehicle:slug}', [VehicleController::class, 'destroy'])->name('destroy');
         });
+
+        Route::resource('master-checklists', MasterChecklistController::class)->except(['create', 'edit', 'show']);
 
         // Review Draft Permohonan & Verifikasi Pengembalian Armada
         Route::post('/draft-bookings/{draftBooking}/review', [DraftBookingController::class, 'review'])->name('draft-bookings.review');

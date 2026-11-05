@@ -34,6 +34,7 @@
             plate_number: '{{ old('plate_number', $vehicle->plate_number) }}',
             code: '{{ old('code', $vehicle->code) }}',
             type: '{{ old('type', $vehicle->type) }}',
+            drivetrain: '{{ old('drivetrain', $vehicle->drivetrain ?? '2wd') }}', // <-- State baru
             capacity: '{{ old('capacity', $vehicle->capacity) }}',
             fuel_type: '{{ old('fuel_type', $vehicle->fuel_type) }}',
             status: '{{ old('status', $vehicle->status) }}',
@@ -61,25 +62,6 @@
         }
     }">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
-            
-            {{-- RINGKASAN ERROR VALIDASI --}}
-            @if($errors->any())
-                <div class="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg shadow-sm">
-                    <div class="flex items-center mb-1">
-                        <svg class="w-5 h-5 mr-2 text-red-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                        <strong class="font-bold text-sm">Terjadi kesalahan pada inputan Anda:</strong>
-                    </div>
-                    <ul class="list-disc pl-9 text-xs space-y-1 font-medium">
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
 
             {{-- KARTU FORMULIR EDIT VEHICLE --}}
             <div class="bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm">
@@ -164,6 +146,17 @@
                                     <option value="monitoring">Monitoring (Pengukuran / Lapangan)</option>
                                 </select>
                                 @error('type')
+                                    <p class="mt-1 text-xs text-red-600 font-semibold">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700">Sistem Penggerak (Drivetrain) <span class="text-red-500">*</span></label>
+                                <select name="drivetrain" x-model="formData.drivetrain" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-medium" required>
+                                    <option value="2wd">2WD (Two-Wheel Drive)</option>
+                                    <option value="4wd">4WD (Four-Wheel Drive / 4x4)</option>
+                                </select>
+                                @error('drivetrain')
                                     <p class="mt-1 text-xs text-red-600 font-semibold">{{ $message }}</p>
                                 @enderror
                             </div>
@@ -341,6 +334,10 @@
                         <div class="flex justify-between border-b border-gray-200 pb-1.5">
                             <span class="text-gray-500 text-xs font-semibold">Tipe Armada:</span>
                             <span class="font-bold text-gray-800" x-text="getTypeLabel(formData.type)"></span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
+                            <span class="text-gray-500 text-xs font-semibold">Sistem Penggerak:</span>
+                            <span class="font-bold text-gray-800 uppercase" x-text="formData.drivetrain"></span>
                         </div>
                         <div class="flex justify-between border-b border-gray-200 pb-1.5">
                             <span class="text-gray-500 text-xs font-semibold">Kapasitas & BBM:</span>

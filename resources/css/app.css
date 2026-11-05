@@ -1,7 +1,10 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
 
-@flowbite;
-
-@layer base { input::placeholder, textarea::placeholder { @apply text-gray-400 opacity-100; } }
+@layer base { 
+    input::placeholder, 
+    textarea::placeholder { 
+        @apply text-gray-400 opacity-100; 
+    } 
+}

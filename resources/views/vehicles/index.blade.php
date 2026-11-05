@@ -2,92 +2,116 @@
     <x-slot name="header">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-                <h2 class="font-bold text-2xl text-gray-800 leading-tight">
+                <h2 class="font-bold text-2xl sm:text-3xl text-gray-800 leading-tight">
                     {{ __('Daftar Armada Kendaraan Dinas') }}
                 </h2>
-                <p class="text-sm text-gray-600 mt-1">
-                    Pilih kendaraan dinas operasional atau monitoring yang tersedia untuk kebutuhan perjalanan dinas.
+                <p class="text-base text-gray-600 mt-1">
+                    Daftar armada kendaraan dinas operasional dan monitoring yang tersedia untuk kebutuhan perjalanan dinas.
                 </p>
             </div>
         </div>
     </x-slot>
 
-    <div class="pt-2 pb-6" x-data="{ filterType: 'all' }">
+    <div class="pt-2 pb-6" x-data="{ 
+        filterType: 'all',
+        searchKeyword: ''
+    }">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
-            {{-- BAR FILTER JENIS KENDARAAN --}}
-            <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div class="flex items-center gap-2 text-sm font-bold text-gray-700">
-                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.447.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/>
+            {{-- BAR FILTER & SEARCH --}}
+            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-xs space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+                
+                {{-- FILTER JENIS ARMADA --}}
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 text-indigo-600 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M5.05 3C3.291 3 2.352 5.024 3.51 6.317l5.422 6.059v4.874c0 .472.227.917.613 1.2l3.069 2.25c1.01.742 2.454.036 2.454-1.2v-7.124l5.422-6.059C21.647 5.024 20.708 3 18.95 3H5.05Z"/>
                     </svg>
-                    <span>Filter Jenis Armada:</span>
+                    <span class="text-sm font-bold text-gray-600 uppercase tracking-wider hidden md:inline-block">Tipe:</span>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <button type="button" 
+                                @click="filterType = 'all'"
+                                :class="filterType === 'all' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                class="px-4 py-2 rounded-xl text-sm font-bold transition-all">
+                            Semua
+                        </button>
+
+                        <button type="button" 
+                                @click="filterType = 'operational'"
+                                :class="filterType === 'operational' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                class="px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                            <svg class="w-4 h-4 stroke-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 01-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
+                            </svg>
+                            <span>Operasional</span>
+                        </button>
+
+                        <button type="button" 
+                                @click="filterType = 'monitoring'"
+                                :class="filterType === 'monitoring' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                class="px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                            <svg class="w-4 h-4 stroke-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                            </svg>
+                            <span>Monitoring</span>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="flex items-center gap-2 w-full sm:w-auto">
-                    {{-- Tombol Semua --}}
-                    <button type="button" 
-                            @click="filterType = 'all'"
-                            :class="filterType === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                            class="px-4 py-2 rounded-lg text-xs font-bold transition-all">
-                        Semua Armada
-                    </button>
-
-                    {{-- Tombol Operasional --}}
-                    <button type="button" 
-                            @click="filterType = 'operational'"
-                            :class="filterType === 'operational' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                            class="px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
+                {{-- SEARCH BAR --}}
+                <div class="relative w-full sm:w-80">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                        <svg class="w-5 h-5 stroke-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
-                        <span>Operasional</span>
-                    </button>
-
-                    {{-- Tombol Monitoring --}}
+                    </div>
+                    <input type="text" 
+                        x-model="searchKeyword" 
+                        placeholder="Cari merk, model, plat, kode, 4wd..." 
+                        class="block w-full pl-10 pr-9 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-2xs">
+                    
+                    {{-- Tombol Clear Search --}}
                     <button type="button" 
-                            @click="filterType = 'monitoring'"
-                            :class="filterType === 'monitoring' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                            class="px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
-                        </svg>
-                        <span>Monitoring</span>
+                            x-show="searchKeyword.length > 0" 
+                            @click="searchKeyword = ''" 
+                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 font-bold text-base">
+                        &times;
                     </button>
                 </div>
+
             </div>
 
             {{-- GRID CARD ARMADA KENDARAAN --}}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @forelse($vehicles as $vehicle)
-                    <div x-show="filterType === 'all' || filterType === '{{ $vehicle->type }}'"
-                         x-transition:enter="transition ease-out duration-200"
-                         x-transition:enter-start="opacity-0 scale-95"
-                         x-transition:enter-end="opacity-100 scale-100"
-                         class="bg-white p-6 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between relative overflow-hidden">
+                    <div x-show="(filterType === 'all' || filterType === '{{ $vehicle->type }}') && 
+                            ('{{ strtolower($vehicle->brand . ' ' . $vehicle->model . ' ' . $vehicle->plate_number . ' ' . $vehicle->code . ' ' . ($vehicle->drivetrain ?? '2wd')) }}'.includes(searchKeyword.toLowerCase()))"
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0 scale-95"
+                     x-transition:enter-end="opacity-100 scale-100"
+                     class="bg-white p-6 border border-gray-200/80 rounded-2xl shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between relative overflow-hidden">
                         
                         <div>
                             {{-- CONTAINER GAMBAR KENDARAAN --}}
-                            <div class="relative h-56 w-full bg-gray-100 rounded-xl overflow-hidden mb-5 border border-gray-200">
+                            <div class="relative h-60 w-full bg-gray-100 rounded-xl overflow-hidden mb-5 border border-gray-200">
                                 @if($vehicle->photo)
                                     <img src="{{ asset('storage/' . $vehicle->photo) }}" 
                                          alt="{{ $vehicle->brand }} {{ $vehicle->model }}" 
                                          class="w-full h-full object-cover transform hover:scale-105 transition-transform duration-300">
                                 @else
                                     <div class="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
-                                        <svg class="w-16 h-16 mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                                        <svg class="w-16 h-16 mb-2 text-gray-300 stroke-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
                                         </svg>
-                                        <span class="text-sm font-semibold">Foto Belum Tersedia</span>
+                                        <span class="text-base font-semibold">Foto Belum Tersedia</span>
                                     </div>
                                 @endif
 
-                                {{-- KODE ARMADA PERSEGI TRANSPARAN --}}
+                                {{-- KODE ARMADA PERSEGI (POJOK KIRI ATAS) --}}
                                 <div class="absolute top-0 left-0 w-20 h-20 bg-gray-900/60 backdrop-blur-md border-r border-b border-white/20 flex items-center justify-center text-white z-10 shadow-md rounded-tl-xl">
                                     <span class="text-3xl font-black font-mono text-white tracking-widest">{{ $vehicle->code }}</span>
                                 </div>
 
-                                {{-- BADGE STATUS KETERSEDIAAN --}}
+                                {{-- BADGE STATUS KETERSEDIAAN (KANAN ATAS) --}}
                                 <div class="absolute top-3 right-3 z-10">
                                     <span class="px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white rounded-lg shadow-md border border-white/20"
                                           :class="{
@@ -106,56 +130,69 @@
                                 </div>
                             </div>
 
-                            {{-- TIPE (SVG) & PLAT NOMOR --}}
+                            {{-- TIPE, DRIVETRAIN & PLAT NOMOR --}}
                             <div class="flex items-center justify-between gap-2 mb-2">
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 rounded border border-indigo-200">
-                                    @if($vehicle->type === 'monitoring')
-                                        <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
-                                        </svg>
-                                        <span>Monitoring</span>
-                                    @else
-                                        <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
-                                        </svg>
-                                        <span>Operasional</span>
-                                    @endif
-                                </span>
+                                <div class="flex items-center gap-1.5">
+                                    {{-- BADGE TIPE --}}
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 rounded-lg border border-indigo-200">
+                                        @if($vehicle->type === 'monitoring')
+                                            <svg class="w-4 h-4 text-indigo-600 stroke-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                                            </svg>
+                                            <span>Monitoring</span>
+                                        @else
+                                            <svg class="w-4 h-4 text-indigo-600 stroke-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 01-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
+                                            </svg>
+                                            <span>Operasional</span>
+                                        @endif
+                                    </span>
 
-                                <span class="px-3 py-1 bg-gray-900 text-white font-mono font-bold text-sm rounded shadow-sm">
+                                    {{-- BADGE DRIVETRAIN (2WD / 4WD) --}}
+                                    <span class="px-2.5 py-1 text-xs font-black uppercase tracking-wider text-slate-800 bg-slate-100 rounded-lg border border-slate-300 font-mono">
+                                        {{ strtoupper($vehicle->drivetrain ?? '2WD') }}
+                                    </span>
+                                </div>
+
+                                {{-- BADGE PLAT NOMOR --}}
+                                <span class="px-3 py-1 bg-gray-900 text-white font-mono font-bold text-sm rounded-lg shadow-2xs">
                                     {{ $vehicle->plate_number }}
                                 </span>
                             </div>
 
-                            <h5 class="text-2xl font-bold tracking-tight text-gray-900 my-2">
+                            <h3 class="text-2xl font-bold tracking-tight text-gray-900 my-2">
                                 {{ $vehicle->brand }} {{ $vehicle->model }}
-                            </h5>
+                            </h3>
 
-                            {{-- DETAIL ATRIBUT --}}
-                            <div class="grid grid-cols-2 gap-3 my-4 p-3 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-700">
+                            {{-- DETAIL ATRIBUT (KAPASITAS, DRIVETRAIN, & BAHAN BAKAR) --}}
+                            <div class="grid grid-cols-3 gap-2 my-4 p-3.5 bg-gray-50 rounded-xl border border-gray-200/70 text-sm text-gray-700">
                                 <div>
-                                    <span class="block text-[10px] uppercase font-bold text-gray-400">Kapasitas</span>
-                                    <span class="font-bold text-gray-900">{{ $vehicle->capacity }} Orang</span>
+                                    <span class="block text-xs uppercase font-bold text-gray-400">Kapasitas</span>
+                                    <span class="font-bold text-gray-900 text-sm">{{ $vehicle->capacity }} Orang</span>
                                 </div>
                                 <div>
-                                    <span class="block text-[10px] uppercase font-bold text-gray-400">BBM</span>
-                                    <span class="font-bold text-gray-900">{{ $vehicle->fuel_type }}</span>
+                                    <span class="block text-xs uppercase font-bold text-gray-400">Penggerak</span>
+                                    <span class="font-bold text-indigo-700 uppercase text-sm">{{ $vehicle->drivetrain ?? '2WD' }}</span>
+                                </div>
+                                <div>
+                                    <span class="block text-xs uppercase font-bold text-gray-400">BBM</span>
+                                    <span class="font-bold text-gray-900 text-sm truncate block">{{ $vehicle->fuel_type }}</span>
                                 </div>
                             </div>
 
                             {{-- CATATAN KENDARAAN --}}
-                            <p class="mb-2 text-sm text-gray-600 line-clamp-2">
+                            <p class="mb-2 text-sm text-gray-600 line-clamp-2 leading-relaxed">
                                 {{ $vehicle->notes ?? 'Tidak ada catatan tambahan untuk armada ini.' }}
                             </p>
                         </div>
 
                     </div>
                 @empty
-                    <div class="col-span-full bg-white p-12 text-center rounded-xl border-2 border-dashed border-gray-300">
-                        <svg class="w-16 h-16 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
+                    <div class="col-span-full bg-white p-12 text-center rounded-2xl border-2 border-dashed border-gray-300">
+                        <svg class="w-16 h-16 text-gray-400 mx-auto mb-3 stroke-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 01-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
                         </svg>
-                        <h3 class="text-xl font-bold text-gray-800 mb-1">Belum Ada Armada Kendaraan</h3>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-1">Belum Ada Armada Kendaraan</h3>
                         <p class="text-base text-gray-500">Tidak ada data armada kendaraan yang tersedia saat ini.</p>
                     </div>
                 @endforelse

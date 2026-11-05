@@ -6,6 +6,9 @@ use App\Http\Requests\StoreBookingRequest;
 use App\Http\Requests\UpdateBookingRequest;
 use App\Mail\BookingSubmittedMail;
 use App\Models\Booking;
+use App\Models\BookingSignature;
+use App\Models\DraftBooking;
+use App\Models\MasterChecklist;
 use App\Models\TripChecklist;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -29,7 +32,7 @@ class BookingController extends Controller
         $user = Auth::user();
 
         // 1. Query Data Peminjaman
-        $bookings = Booking::with(['user', 'vehicle.checklists', 'driver', 'log','checklists'])
+        $bookings = Booking::with(['user', 'vehicle.checklists', 'driver', 'log', 'checklists'])
             ->when(!in_array($user->role, ['admin_app', 'admin_lap', 'approver']), function ($query) use ($user) {
                 $query->where(function ($q) use ($user) {
                     $q->where('user_id', $user->id)
@@ -42,16 +45,34 @@ class BookingController extends Controller
             ->paginate(10);
 
         // 2. Data Master Driver & Pegawai Non-Driver
-        $primaryDrivers = User::where('role', 'driver')->orderBy('name', 'asc')->get();
-        $nonDrivers     = User::where('role', '!=', 'driver')->orderBy('name', 'asc')->get();
-        $availableDrivers = $primaryDrivers->concat($nonDrivers);
+        $primaryDrivers = User::where('role', 'driver')
+            ->orderBy('name', 'asc')
+            ->get(['id', 'name', 'role']);
+            
+        $nonDrivers = User::where('role', '!=', 'driver')
+            ->orderBy('name', 'asc')
+            ->get(['id', 'name', 'role']);
+            
+        $availableDrivers = $primaryDrivers->concat($nonDrivers)->map(function ($d) {
+            return [
+                'id'   => $d->id,
+                'name' => $d->name,
+                'role' => $d->role,
+            ];
+        });
 
         // 3. Data Master Kendaraan Non-Maintenance
         $availableVehicles = Vehicle::where('status', '!=', 'maintenance')
             ->orderBy('code', 'asc')
-            ->get();
+            ->get(['id', 'brand', 'model', 'plate_number', 'code']);
 
-        // 4. Dataset Jadwal Booking Aktif (Untuk Filter Realtime Alpine.js)
+        // 4. Data Master Checklist Aktif (JSON Snapshot)
+        $masterChecklists = MasterChecklist::active()
+            ->get(['id', 'name', 'category', 'sort_order'])
+            ->toArray();
+        // dd($masterChecklists);
+
+        // 5. Dataset Jadwal Booking Aktif (Untuk Filter Realtime Alpine.js)
         $activeBookings = Booking::whereIn('status', ['waiting', 'approved', 'on_trip', 'returned', 'checked'])
             ->whereNotNull('vehicle_id')
             ->select('id', 'vehicle_id', 'driver_id', 'start_date', 'end_date')
@@ -66,7 +87,7 @@ class BookingController extends Controller
                 ];
             });
 
-        // 5. Flag Reassign Armada Maintenance
+        // 6. Flag Reassign Armada Maintenance
         $today = now()->startOfDay();
 
         $bookings->getCollection()->transform(function ($booking) use ($today) {
@@ -83,13 +104,14 @@ class BookingController extends Controller
             'availableDrivers', 
             'primaryDrivers',
             'nonDrivers',
-            'activeBookings'
+            'activeBookings',
+            'masterChecklists'
         ));
     }
 
     public function create()
     {
-        $users = User::whereIn('role', ['admin_lap', 'pegawai', 'driver'])
+        $users = User::whereIn('role', ['admin_lap', 'pegawai', 'driver', 'admin_app', 'approver'])
             ->orderBy('name', 'asc')
             ->get(['id', 'name', 'nip', 'jabatan', 'role']);
 
@@ -106,36 +128,53 @@ class BookingController extends Controller
         return view('bookings.create', compact('users', 'monitoringVehicles', 'operationalVehicles'));
     }
 
+    public function createFromDraft(DraftBooking $draftBooking)
+    {
+        // Pastikan draft berstatus approved
+        if ($draftBooking->status !== 'approved') {
+            return redirect()->route('draft-bookings.index')
+                ->with('error', 'Draft permohonan harus disetujui terlebih dahulu sebelum dilanjutkan.');
+        }
+
+        $draftBooking->load(['user', 'vehicle', 'driver']);
+
+        $users = User::whereIn('role', ['admin_lap', 'pegawai', 'driver', 'admin_app', 'approver'])
+            ->orderBy('name', 'asc')
+            ->get(['id', 'name', 'nip', 'jabatan', 'role']);
+
+        return view('bookings.create_from_draft', compact('draftBooking', 'users'));
+    }
+
     public function parseDocument(Request $request)
     {
         $request->validate([
-            'document' => 'required|file|mimes:pdf|max:5120',
+            'document'      => 'required|file|mimes:pdf|max:5120',
+            'document_type' => 'nullable|in:surat_tugas,nota_dinas',
         ]);
 
         try {
             $file = $request->file('document');
             $filePath = $file->store('letters', 'public');
+            $docType  = $request->input('document_type', 'surat_tugas');
+            $typeName = ($docType === 'nota_dinas') ? 'Nota Dinas' : 'Surat Tugas';
 
             $pdfBase64 = base64_encode(file_get_contents($file->getPathname()));
 
-            $prompt = "Kamu adalah sistem ekstraktor dokumen resmi. Analisis dokumen Surat Tugas dalam berkas PDF ini dan ekstrak datanya ke dalam format JSON murni.
+            $prompt = "Kamu adalah sistem ekstraktor dokumen resmi pemerintah. Analisis dokumen {$typeName} dalam berkas PDF ini dan ekstrak datanya ke format JSON murni.
 
             Data yang harus diekstrak:
-            1. letter_number: Nomor surat tugas lengkap.
-            2. destination: Tempat/Lokasi pelaksanaan.
-            3. purpose: Maksud/keperluan kegiatan.
-            4. start_date: Tanggal mulai pelaksanaan (format YYYY-MM-DD).
-            5. end_date: Tanggal selesai pelaksanaan (format YYYY-MM-DD).
-            6. nips: Array berisi daftar NIP (18 digit angka) dari pegawai yang ditugaskan.";
+            1. letter_number: Nomor {$typeName} lengkap.
+            2. destination: Tempat/Lokasi/Tujuan pelaksanaan kegiatan.
+            3. purpose: Maksud/Hal/Keperluan agenda kegiatan.
+            4. start_date: Tanggal/waktu mulai pelaksanaan (format YYYY-MM-DD HH:mm:ss atau YYYY-MM-DD).
+            5. end_date: Tanggal/waktu selesai pelaksanaan (format YYYY-MM-DD HH:mm:ss atau YYYY-MM-DD).
+            6. nips: Array berisi daftar NIP (18 digit angka) dari pegawai yang ditugaskan/tercantum.";
 
             $apiKey = config('services.gemini.api_key');
             $model  = config('services.gemini.model', 'gemini-flash-latest');
 
             $response = Http::timeout(60)
                 ->retry(2, 1000)
-                ->withHeaders([
-                    'Content-Type' => 'application/json',
-                ])
                 ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}", [
                     'contents' => [
                         [
@@ -166,7 +205,6 @@ class BookingController extends Controller
             $matchedUserIds = [];
             if (!empty($aiResult['nips']) && is_array($aiResult['nips'])) {
                 $cleanedNips = array_map(fn($nip) => preg_replace('/[^0-9]/', '', $nip), $aiResult['nips']);
-
                 $matchedUserIds = User::whereIn('nip', $cleanedNips)
                     ->pluck('id')
                     ->map(fn($id) => (string)$id)
@@ -189,7 +227,7 @@ class BookingController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal membaca Surat Tugas via AI: ' . $e->getMessage()
+                'message' => 'Gagal membaca dokumen via AI: ' . $e->getMessage()
             ], 422);
         }
     }
@@ -226,6 +264,9 @@ class BookingController extends Controller
             $validated['letter_file'] = $request->input('letter_file_temp');
         }
 
+        // Tangkap jenis dokumen (surat_tugas / nota_dinas)
+        $validated['letter_type'] = $request->input('letter_type', 'surat_tugas');
+
         if (isset($validated['participants']) && is_array($validated['participants'])) {
             $validated['participants'] = array_values(array_filter($validated['participants']));
         } else {
@@ -236,7 +277,7 @@ class BookingController extends Controller
             $validated['vehicle_id'] = null;
         }
 
-        // Cek bentrok alokasi kendaraan (khusus jenis monitoring)
+        // Cek bentrok alokasi kendaraan
         if (!empty($validated['vehicle_id'])) {
             $isVehicleOverlapped = Booking::where('vehicle_id', $validated['vehicle_id'])
                 ->whereIn('status', ['waiting', 'approved', 'on_trip', 'returned', 'checked'])
@@ -255,9 +296,8 @@ class BookingController extends Controller
             }
         }
 
-        // Cek bentrok jadwal personel (pemohon & anggota tim)
+        // Cek bentrok jadwal personel
         $allPersonnelIds = array_merge([Auth::id()], $validated['participants']);
-
         $userOverlap = Booking::whereIn('status', ['waiting', 'approved', 'on_trip', 'returned', 'checked'])
             ->where(function ($query) use ($validated) {
                 $query->where('start_date', '<', $validated['end_date'])
@@ -265,7 +305,6 @@ class BookingController extends Controller
             })
             ->where(function ($query) use ($allPersonnelIds) {
                 $query->whereIn('user_id', $allPersonnelIds);
-
                 foreach ($allPersonnelIds as $personnelId) {
                     $query->orWhereJsonContains('participants', (string) $personnelId)
                         ->orWhereJsonContains('participants', (int) $personnelId);
@@ -277,7 +316,16 @@ class BookingController extends Controller
             return back()
                 ->withInput($request->except('letter_file') + ['letter_file_temp' => $validated['letter_file'] ?? null])
                 ->withErrors([
-                    'participants' => 'Anda atau salah satu anggota tim yang dipilih sudah memiliki jadwal perjalanan dinas lain pada rentang waktu ini.'
+                    'participants' => 'Anda atau salah melebihkan anggota tim yang dipilih sudah memiliki jadwal perjalanan dinas lain pada rentang waktu ini.'
+                ]);
+        }
+
+        // Validasi Keberadaan Tanda Tangan
+        if (!$request->filled('signature')) {
+            return back()
+                ->withInput($request->except('letter_file') + ['letter_file_temp' => $validated['letter_file'] ?? null])
+                ->withErrors([
+                    'signature' => 'Tanda tangan pemohon wajib dibubuhkan sebelum mengirimkan permohonan.'
                 ]);
         }
 
@@ -285,16 +333,51 @@ class BookingController extends Controller
         $validated['user_id']     = Auth::id();
         $validated['status']      = 'pending';
 
-        $booking = Booking::create($validated);
+        // Jalankan transaksi database
+        $booking = DB::transaction(function () use ($validated, $request) {
+            // 1. Simpan Data Booking Utama
+            $booking = Booking::create($validated);
 
-        // Notifikasi WA ke Admin Lapangan
+            // 2. Dekode String Base64 Menjadi File PNG Fisik
+            $base64Image = $request->input('signature');
+            
+            // Pisahkan header "data:image/png;base64," dari payload datanya
+            @list(, $fileData) = explode(';', $base64Image);
+            @list(, $fileData) = explode(',', $fileData);
+            $decodedImage = base64_decode($fileData);
+
+            // Buat nama file PNG yang unik
+            $fileName = 'signatures/sig_' . $booking->id . '_' . Str::random(10) . '.png';
+
+            // Simpan ke storage disk 'public' (storage/app/public/signatures/...)
+            Storage::disk('public')->put($fileName, $decodedImage);
+
+            // 3. Simpan Path File PNG ke DB untuk 2 Jenis Dokumen (Formulir & BAST)
+            $documentsToSign = ['formulir_peminjaman', 'bast_peminjaman'];
+
+            foreach ($documentsToSign as $docType) {
+                BookingSignature::create([
+                    'booking_id'     => $booking->id,
+                    'user_id'        => Auth::id(),
+                    'document_type'  => $docType,
+                    'signer_role'    => 'pemohon',
+                    'signature_path' => $fileName, // Menyimpan path file PNG (misal: "signatures/sig_1_x82js.png")
+                    'signed_at'      => now(),
+                ]);
+            }
+
+            return $booking;
+        });
+
+        // Kirim Notifikasi WhatsApp
         $adminPhones = User::where('role', 'admin_lap')->pluck('phone')->filter()->toArray();
         if (!empty($adminPhones)) {
             $startDateStr = \Carbon\Carbon::parse($booking->start_date)->format('d/m/Y H:i');
             $endDateStr   = \Carbon\Carbon::parse($booking->end_date)->format('d/m/Y H:i');
+            $docLabel     = $booking->letter_type === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas';
 
             $msgAdmin = "📩 *PERMOHONAN PEMINJAMAN BARU*\n\n"
-                . "No. Surat: {$booking->letter_number}\n"
+                . "No. {$docLabel}: {$booking->letter_number}\n"
                 . "Pemohon: " . Auth::user()->name . "\n"
                 . "Tipe Armada: " . strtoupper($booking->vehicle_type) . "\n"
                 . "Tujuan: {$booking->destination}\n"
@@ -304,29 +387,127 @@ class BookingController extends Controller
             WhatsAppService::sendBulkMessage($adminPhones, $msgAdmin);
         }
 
-        // Notifikasi WA ke Pemohon Utama
-        if (Auth::user()->phone) {
-            $startDateStr = \Carbon\Carbon::parse($booking->start_date)->format('d/m/Y H:i');
-            $endDateStr   = \Carbon\Carbon::parse($booking->end_date)->format('d/m/Y H:i');
-
-            $msgApplicant = "✅ *PENGAJUAN PEMINJAMAN BERHASIL*\n\n"
-                . "No. Surat: {$booking->letter_number}\n"
-                . "Tujuan: {$booking->destination}\n"
-                . "Jadwal: {$startDateStr} s.d. {$endDateStr}\n\n"
-                . "Permohonan Anda sedang dalam proses alokasi oleh Admin Lapangan.";
-
-            WhatsAppService::sendMessage(Auth::user()->phone, $msgApplicant);
-        }
-
         return redirect()->route('bookings.index')
             ->with('success', 'Pengajuan permohonan peminjaman armada berhasil dikirim.');
     }
 
+    public function storeFromDraft(StoreBookingRequest $request, DraftBooking $draftBooking)
+    {
+        $validated = $request->validated();
+
+        if ($request->hasFile('letter_file')) {
+            $validated['letter_file'] = $request->file('letter_file')->store('letters', 'public');
+        } elseif ($request->filled('letter_file_temp')) {
+            $validated['letter_file'] = $request->input('letter_file_temp');
+        }
+
+        $validated['participants'] = isset($validated['participants']) && is_array($validated['participants'])
+            ? array_values(array_filter($validated['participants']))
+            : [];
+
+        // Validasi Keberadaan Tanda Tangan
+        if (!$request->filled('signature')) {
+            return back()
+                ->withInput($request->except('letter_file') + ['letter_file_temp' => $validated['letter_file'] ?? null])
+                ->withErrors([
+                    'signature' => 'Tanda tangan pemohon wajib dibubuhkan sebelum mengonversi permohonan.'
+                ]);
+        }
+
+        // Kunci nilai dari Draft & tangkap letter_type
+        $validated['draft_booking_id'] = $draftBooking->id;
+        $validated['letter_type']      = $request->input('letter_type', 'surat_tugas');
+        $validated['vehicle_id']       = $draftBooking->vehicle_id;
+        $validated['driver_id']        = $draftBooking->driver_id;
+        $validated['vehicle_type']     = $draftBooking->vehicle ? $draftBooking->vehicle->type : 'operational';
+        $validated['letter_slug']      = $this->generateUniqueSlug($validated['letter_number']);
+        $validated['user_id']          = $draftBooking->user_id;
+        $validated['status']           = 'pending';
+
+        // Transaksi Database untuk Booking & Penyimpanan TTD
+        $booking = DB::transaction(function () use ($validated, $draftBooking, $request) {
+            // 1. Buat Peminjaman Resmi dari Draft
+            $booking = Booking::create($validated);
+
+            // 2. Ubah status Draft menjadi converted
+            $draftBooking->update(['status' => 'converted']);
+
+            // 3. Dekode String Base64 Signature Menjadi File PNG Fisik
+            $base64Image = $request->input('signature');
+            @list(, $fileData) = explode(';', $base64Image);
+            @list(, $fileData) = explode(',', $fileData);
+            $decodedImage = base64_decode($fileData);
+
+            $fileName = 'signatures/sig_' . $booking->id . '_' . Str::random(10) . '.png';
+            Storage::disk('public')->put($fileName, $decodedImage);
+
+            // 4. Simpan Path TTD ke DB untuk Formulir & BAST Peminjaman
+            $documentsToSign = ['formulir_peminjaman', 'bast_peminjaman'];
+
+            foreach ($documentsToSign as $docType) {
+                BookingSignature::create([
+                    'booking_id'     => $booking->id,
+                    'user_id'        => Auth::id(),
+                    'document_type'  => $docType,
+                    'signer_role'    => 'pemohon',
+                    'signature_path' => $fileName,
+                    'signed_at'      => now(),
+                ]);
+            }
+
+            return $booking;
+        });
+
+        // Kirim Notifikasi WhatsApp
+        $adminPhones = User::where('role', 'admin_lap')->pluck('phone')->filter()->toArray();
+        if (!empty($adminPhones)) {
+            $startDateStr  = \Carbon\Carbon::parse($booking->start_date)->format('d/m/Y H:i');
+            $endDateStr    = \Carbon\Carbon::parse($booking->end_date)->format('d/m/Y H:i');
+            $docLabel      = $booking->letter_type === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas';
+            $applicantName = $draftBooking->user->name ?? Auth::user()->name;
+
+            $msgAdmin = "📋 *PERMOHONAN RESMI DARI DRAFT*\n\n"
+                . "No. {$docLabel}: {$booking->letter_number}\n"
+                . "Pemohon: {$applicantName}\n"
+                . "Tujuan: {$booking->destination}\n"
+                . "Jadwal: {$startDateStr} s.d. {$endDateStr}\n\n"
+                . "Draft permohonan armada telah resmi dikonversi menjadi permohonan resmi. Mohon Tinjau dan lakukan alokasi armada & driver via dashboard.";
+
+            WhatsAppService::sendBulkMessage($adminPhones, $msgAdmin);
+        }
+
+        return redirect()->route('bookings.index')
+            ->with('success', 'Permohonan peminjaman resmi berhasil dibuat dari Draft.');
+    }
+
     public function show(Booking $booking)
     {
-        $booking->load(['user', 'vehicle', 'driver', 'log', 'allocator', 'approver', 'returnChecker', 'returnApprover']);
+        // Eager load relasi log dan checklists agar query efisien (1-2 query saja)
+        $booking->load([
+            'user', 
+            'vehicle', 
+            'driver', 
+            'log', 
+            'checklists' => function ($query) {
+                $query->orderBy('created_at', 'desc');
+            }
+        ]);
 
-        return view('bookings.show', compact('booking'));
+        // Ambil checklist spesifik yang terikat dengan log aktif
+        $logId = $booking->log?->id;
+        
+        $startChecklist = $booking->checklists
+            ->where('type', 'start')
+            ->when($logId, fn($c) => $c->where('vehicle_log_id', $logId))
+            ->first() ?? $booking->checklists->where('type', 'start')->last();
+
+        $endChecklist = $booking->checklists
+            ->where('type', 'end')
+            ->when($logId, fn($c) => $c->where('vehicle_log_id', $logId))
+            ->first() ?? $booking->checklists->where('type', 'end')->last();
+
+        // Kirimkan variabel ke view/modal
+        return view('bookings.show', compact('booking', 'startChecklist', 'endChecklist'));
     }
 
     /**
@@ -346,6 +527,7 @@ class BookingController extends Controller
             'vehicle_id' => 'required_if:action,approve|nullable|exists:vehicles,id',
             'driver_id'  => 'nullable|exists:users,id',
             'admin_note' => 'required_if:action,reject|nullable|string|max:500',
+            'signature'  => 'nullable|string',
         ], [
             'vehicle_id.required_if' => 'Unit armada wajib dipilih saat melakukan alokasi.',
             'admin_note.required_if' => 'Alasan penolakan wajib diisi.',
@@ -355,6 +537,7 @@ class BookingController extends Controller
             $startDate = $booking->start_date;
             $endDate   = $booking->end_date;
 
+            // Cek Bentrok Armada & Driver
             $overlappingQuery = Booking::where('id', '!=', $booking->id)
                 ->whereIn('status', ['waiting', 'approved', 'on_trip', 'returned', 'checked'])
                 ->where(function ($query) use ($startDate, $endDate) {
@@ -390,15 +573,64 @@ class BookingController extends Controller
                 }
             }
 
-            // Update status ke WAITING & simpan audit trail allocated_by
-            $booking->update([
-                'status'       => 'waiting',
-                'vehicle_id'   => $request->vehicle_id,
-                'driver_id'    => $request->driver_id,
-                'admin_note'   => $request->admin_note,
-                'allocated_by' => $currentUser->id,
-                'allocated_at' => now(),
-            ]);
+            // Cek keberadaan record TTD lama
+            $existingSignature = BookingSignature::where('booking_id', $booking->id)
+                ->where('document_type', 'bast_peminjaman')
+                ->where('signer_role', 'admin_lap')
+                ->first();
+
+            // Validasi wajib TTD jika TTD lama belum ada dan canvas kosong
+            if (!$existingSignature && !$request->filled('signature')) {
+                throw ValidationException::withMessages([
+                    'signature' => 'Tanda tangan pengesahan Admin Lapangan wajib dibubuhkan.'
+                ]);
+            }
+
+            // Jalankan Transaksi Database
+            DB::transaction(function () use ($booking, $request, $currentUser, $existingSignature) {
+                // 1. Update data booking
+                $booking->update([
+                    'status'       => 'waiting',
+                    'vehicle_id'   => $request->vehicle_id,
+                    'driver_id'    => $request->driver_id,
+                    'admin_note'   => $request->admin_note,
+                    'allocated_by' => $currentUser->id,
+                    'allocated_at' => now(),
+                ]);
+
+                // 2. Simpan/Perbarui TTD jika ada goresan TTD baru dari Canvas
+                if ($request->filled('signature')) {
+                    // Hapus file PNG lama dari storage jika sebelumnya sudah ada
+                    if ($existingSignature && $existingSignature->signature_path) {
+                        if (Storage::disk('public')->exists($existingSignature->signature_path)) {
+                            Storage::disk('public')->delete($existingSignature->signature_path);
+                        }
+                    }
+
+                    // Dekode Base64 & Simpan File PNG Baru
+                    $base64Image = $request->input('signature');
+                    @list(, $fileData) = explode(';', $base64Image);
+                    @list(, $fileData) = explode(',', $fileData);
+                    $decodedImage = base64_decode($fileData);
+
+                    $fileName = 'signatures/sig_admin_' . $booking->id . '_' . Str::random(10) . '.png';
+                    Storage::disk('public')->put($fileName, $decodedImage);
+
+                    // Update atau buat data TTD di DB
+                    BookingSignature::updateOrCreate(
+                        [
+                            'booking_id'    => $booking->id,
+                            'document_type' => 'bast_peminjaman',
+                            'signer_role'   => 'admin_lap',
+                        ],
+                        [
+                            'user_id'        => $currentUser->id,
+                            'signature_path' => $fileName,
+                            'signed_at'      => now(),
+                        ]
+                    );
+                }
+            });
 
             $booking->load(['user', 'vehicle', 'driver']);
 
@@ -408,7 +640,7 @@ class BookingController extends Controller
                 
             $driverName = $booking->driver ? $booking->driver->name : 'Lepas Kunci (Tanpa Driver)';
 
-            // Notifikasi ke Approver
+            // Notifikasi WhatsApp ke Approver
             $approverPhones = User::where('role', 'approver')->pluck('phone')->filter()->toArray();
             if (!empty($approverPhones)) {
                 $msgApprover = "📋 *PERMOHONAN MENUNGGU PERSETUJUAN (ALOKASI SELESAI)*\n\n"
@@ -424,6 +656,7 @@ class BookingController extends Controller
             return back()->with('success', 'Armada & Driver berhasil dialokasikan. Permohonan kini menunggu persetujuan Atasan/Approver.');
 
         } else {
+            // Alur Penolakan (Reject)
             $booking->update([
                 'status'     => 'rejected',
                 'admin_note' => $request->admin_note,
@@ -457,6 +690,7 @@ class BookingController extends Controller
         $validated = $request->validate([
             'action'     => ['required', 'in:approve,reject'],
             'admin_note' => ['required_if:action,reject', 'nullable', 'string', 'max:500'],
+            'signature'  => ['nullable', 'string'],
         ]);
 
         $action = $validated['action'];
@@ -480,14 +714,62 @@ class BookingController extends Controller
             return redirect()->route('bookings.index')->with('success', 'Permohonan telah ditolak.');
         }
 
+        // Tentukan jenis dokumen BAST berdasarkan status booking saat ini
+        $targetDocType = ($booking->status === 'waiting') ? 'bast_peminjaman' : 'bast_pengembalian';
+
+        // Cek keberadaan TTD lama untuk dokumen target oleh role approver
+        $existingSignature = BookingSignature::where('booking_id', $booking->id)
+            ->where('document_type', $targetDocType)
+            ->where('signer_role', 'approver')
+            ->first();
+
+        // Validasi keberadaan TTD jika belum ada TTD lama DAN canvas diisi kosong
+        if (!$existingSignature && !$request->filled('signature')) {
+            throw ValidationException::withMessages([
+                'signature' => 'Tanda tangan pengesahan Approver wajib dibubuhkan.'
+            ]);
+        }
+
         // TAHAP 2: PERSETUJUAN KEBERANGKATAN (waiting -> approved)
         if ($booking->status === 'waiting') {
-            $booking->update([
-                'status'      => 'approved',
-                'approved_by' => $currentUser->id,
-                'approved_at' => now(),
-                'admin_note'  => $note ?? $booking->admin_note,
-            ]);
+            DB::transaction(function () use ($booking, $request, $currentUser, $note, $targetDocType, $existingSignature) {
+                $booking->update([
+                    'status'      => 'approved',
+                    'approved_by' => $currentUser->id,
+                    'approved_at' => now(),
+                    'admin_note'  => $note ?? $booking->admin_note,
+                ]);
+
+                // Simpan / Update TTD jika ada input signature baru
+                if ($request->filled('signature')) {
+                    if ($existingSignature && $existingSignature->signature_path) {
+                        if (Storage::disk('public')->exists($existingSignature->signature_path)) {
+                            Storage::disk('public')->delete($existingSignature->signature_path);
+                        }
+                    }
+
+                    $base64Image = $request->input('signature');
+                    @list(, $fileData) = explode(';', $base64Image);
+                    @list(, $fileData) = explode(',', $fileData);
+                    $decodedImage = base64_decode($fileData);
+
+                    $fileName = 'signatures/sig_approver_' . $booking->id . '_' . $targetDocType . '_' . Str::random(8) . '.png';
+                    Storage::disk('public')->put($fileName, $decodedImage);
+
+                    BookingSignature::updateOrCreate(
+                        [
+                            'booking_id'    => $booking->id,
+                            'document_type' => $targetDocType,
+                            'signer_role'   => 'approver',
+                        ],
+                        [
+                            'user_id'        => $currentUser->id,
+                            'signature_path' => $fileName,
+                            'signed_at'      => now(),
+                        ]
+                    );
+                }
+            });
 
             $booking->load(['user', 'vehicle', 'driver']);
 
@@ -498,7 +780,7 @@ class BookingController extends Controller
             if (!empty($booking->user?->phone)) {
                 $msgApplicant = "✅ *PERMOHONAN PEMINJAMAN DISETUJUI*\n\n"
                     . "Halo *" . $booking->user->name . "*,\n"
-                    . "Permohonan armada Anda (" . $booking->letter_number . ") telah *DISETUJU/APPROVED* oleh Pejabat Berwenang.\n\n"
+                    . "Permohonan armada Anda (" . $booking->letter_number . ") telah *DISETUJUI/APPROVED* oleh Pejabat Berwenang.\n\n"
                     . "🚘 *Armada:* " . $vehicleName . "\n"
                     . "👤 *Driver:* " . ($booking->driver?->name ?? 'Lepas Kunci') . "\n\n"
                     . "Selamat bertugas!";
@@ -520,12 +802,44 @@ class BookingController extends Controller
 
         // TAHAP 5: PERSETUJUAN PENGEMBALIAN / PENGESAHAN BAST (checked -> completed)
         if ($booking->status === 'checked') {
-            $booking->update([
-                'status'               => 'completed',
-                'returned_approved_by' => $currentUser->id,
-                'returned_approved_at' => now(),
-                'admin_note'           => $note ?? $booking->admin_note,
-            ]);
+            DB::transaction(function () use ($booking, $request, $currentUser, $note, $targetDocType, $existingSignature) {
+                $booking->update([
+                    'status'               => 'completed',
+                    'returned_approved_by' => $currentUser->id,
+                    'returned_approved_at' => now(),
+                    'admin_note'           => $note ?? $booking->admin_note,
+                ]);
+
+                // Simpan / Update TTD jika ada input signature baru
+                if ($request->filled('signature')) {
+                    if ($existingSignature && $existingSignature->signature_path) {
+                        if (Storage::disk('public')->exists($existingSignature->signature_path)) {
+                            Storage::disk('public')->delete($existingSignature->signature_path);
+                        }
+                    }
+
+                    $base64Image = $request->input('signature');
+                    @list(, $fileData) = explode(';', $base64Image);
+                    @list(, $fileData) = explode(',', $fileData);
+                    $decodedImage = base64_decode($fileData);
+
+                    $fileName = 'signatures/sig_approver_' . $booking->id . '_' . $targetDocType . '_' . Str::random(8) . '.png';
+                    Storage::disk('public')->put($fileName, $decodedImage);
+
+                    BookingSignature::updateOrCreate(
+                        [
+                            'booking_id'    => $booking->id,
+                            'document_type' => $targetDocType,
+                            'signer_role'   => 'approver',
+                        ],
+                        [
+                            'user_id'        => $currentUser->id,
+                            'signature_path' => $fileName,
+                            'signed_at'      => now(),
+                        ]
+                    );
+                }
+            });
 
             $booking->load(['user', 'vehicle', 'log']);
 
@@ -563,52 +877,50 @@ class BookingController extends Controller
             return back()->withErrors(['error' => 'Perjalanan belum disetujui oleh Atasan atau sudah berjalan.']);
         }
 
-        // Aturan validasi start trip & checklist
+        // Aturan validasi start trip
         $validated = $request->validate([
-            'start_fuel_level'     => ['required', 'string', 'max:20'],
-            'start_photo'          => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
-            
-            // Checklist Kondisi Fisik (Boolean Checkbox)
-            'body_condition'       => ['nullable', 'boolean'],
-            'tires_condition'      => ['nullable', 'boolean'],
-            'lights_condition'     => ['nullable', 'boolean'],
-            'glass_mirrors'        => ['nullable', 'boolean'],
-            'brakes_condition'     => ['nullable', 'boolean'],
-            'interior_cleanliness' => ['nullable', 'boolean'],
-            
-            // Perlengkapan Dinas Wajib
-            'has_stnk'             => ['nullable', 'boolean'],
-            'has_spare_tire'       => ['nullable', 'boolean'],
-            'has_jack_tools'       => ['nullable', 'boolean'],
-            'has_first_aid'        => ['nullable', 'boolean'],
-
-            'notes'                => ['nullable', 'string'],
+            'start_fuel_level'   => ['required', 'string', 'max:20'],
+            'start_photo'        => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'items'              => ['required', 'string'],
+            'has_incident'       => ['nullable', 'string'],
+            'notes'              => ['required_if:has_incident,true', 'nullable', 'string'],
+            'condition_photos'   => ['required_if:has_incident,true', 'array', 'min:1', 'max:5'],
+            'condition_photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
-        // Jika ada item fisik yang false (rusak), wajibkan catatan
-        $physicalItems = ['body_condition', 'tires_condition', 'lights_condition', 'glass_mirrors', 'brakes_condition', 'interior_cleanliness'];
-        $hasDamage = false;
-        foreach ($physicalItems as $item) {
-            if (!$request->boolean($item)) {
-                $hasDamage = true;
-                break;
-            }
-        }
-
-        if ($hasDamage && empty($validated['notes'])) {
-            return back()->withInput()->withErrors([
-                'notes' => 'Terdapat bagian fisik kendaraan yang centangnya dilepas (bermasalah). Mohon jelaskan detailnya di kolom catatan.'
-            ]);
+        $items = json_decode($validated['items'], true);
+        if (!is_array($items)) {
+            return back()->withInput()->withErrors(['items' => 'Format data checklist tidak valid.']);
         }
 
         if ($request->hasFile('start_photo')) {
             $validated['start_photo'] = $request->file('start_photo')->store('vehicle_logs/starts', 'public');
         }
 
-        DB::transaction(function () use ($booking, $validated, $currentUser, $request) {
+        $uploadedConditionPhotos = [];
+        if ($request->hasFile('condition_photos')) {
+            foreach ($request->file('condition_photos') as $photo) {
+                if ($photo->isValid()) {
+                    $uploadedConditionPhotos[] = $photo->store('vehicle_logs/incidents', 'public');
+                }
+            }
+        }
+
+        DB::transaction(function () use ($booking, $validated, $currentUser, $items, $uploadedConditionPhotos) {
             $booking->update([
                 'status' => 'on_trip',
             ]);
+
+            // Payload Array murni untuk Eloquent JSON Cast
+            $notesPayload = [
+                'start' => $validated['notes'] ?? null,
+                'end'   => null,
+            ];
+
+            $photosPayload = [
+                'start' => $uploadedConditionPhotos,
+                'end'   => [],
+            ];
 
             $log = VehicleLog::create([
                 'booking_id'       => $booking->id,
@@ -616,66 +928,26 @@ class BookingController extends Controller
                 'checked_out_at'   => now(),
                 'start_fuel_level' => $validated['start_fuel_level'],
                 'start_photo'      => $validated['start_photo'] ?? null,
+                'condition_notes'  => $notesPayload,
+                'condition_photos' => $photosPayload,
             ]);
 
-            // Simpan data Pre-Trip Checklist
             TripChecklist::create([
-                'booking_id'           => $booking->id,
-                'vehicle_id'           => $booking->vehicle_id,
-                'vehicle_log_id'       => $log->id,
-                'type'                 => 'start',
-                'body_condition'       => $request->boolean('body_condition'),
-                'tires_condition'      => $request->boolean('tires_condition'),
-                'lights_condition'     => $request->boolean('lights_condition'),
-                'glass_mirrors'        => $request->boolean('glass_mirrors'),
-                'brakes_condition'     => $request->boolean('brakes_condition'),
-                'interior_cleanliness' => $request->boolean('interior_cleanliness'),
-                'has_stnk'             => $request->boolean('has_stnk'),
-                'has_spare_tire'       => $request->boolean('has_spare_tire'),
-                'has_jack_tools'       => $request->boolean('has_jack_tools'),
-                'has_first_aid'        => $request->boolean('has_first_aid'),
-                'notes'                => $validated['notes'] ?? null,
-                'created_by'           => $currentUser->id,
+                'booking_id'     => $booking->id,
+                'vehicle_id'     => $booking->vehicle_id,
+                'vehicle_log_id' => $log->id,
+                'type'           => 'start',
+                'items'          => $items,
+                'notes'          => $validated['notes'] ?? null,
+                'created_by'     => $currentUser->id,
             ]);
         });
-
-        // Notifikasi WA
-        $booking->load(['user', 'vehicle', 'driver']);
-        $vehicleName = $booking->vehicle 
-            ? $booking->vehicle->brand . ' ' . $booking->vehicle->model . ' (' . $booking->vehicle->plate_number . ')' 
-            : 'Armada Operasional';
-
-        $recipientUserIds = collect([$booking->user_id]);
-        if (!empty($booking->participants)) {
-            $recipientUserIds = $recipientUserIds->merge($booking->participants);
-        }
-        $adminIds = User::where('role', 'admin_lap')->pluck('id');
-        $recipientUserIds = $recipientUserIds->merge($adminIds)->unique();
-
-        $recipients = User::whereIn('id', $recipientUserIds)->whereNotNull('phone')->where('phone', '!=', '')->get();
-
-        foreach ($recipients as $recipient) {
-            $msgDeparture = "🚗 *PERJALANAN DINAS DIMULAI*\n\n"
-                . "Halo *" . $recipient->name . "*,\n\n"
-                . "No. Surat: *" . $booking->letter_number . "*\n"
-                . "Pemohon: *" . ($booking->user->name ?? '-') . "*\n"
-                . "Tujuan: *" . $booking->destination . "*\n\n"
-                . "🚘 *Armada:* " . $vehicleName . "\n"
-                . "⛽ *BBM Awal:* " . $validated['start_fuel_level'] . "\n\n"
-                . "Semoga perjalanan dinas berjalan lancar dan utamakan keselamatan dalam berkendara.";
-
-            try {
-                WhatsAppService::sendMessage($recipient->phone, $msgDeparture);
-            } catch (\Exception $e) {
-                Log::error("Gagal mengirim WA Keberangkatan ke {$recipient->name}: " . $e->getMessage());
-            }
-        }
 
         return redirect()->route('bookings.index')->with('success', 'Perjalanan dinas berhasil dimulai dan checklist keberangkatan telah disimpan.');
     }
 
     /**
-     * TAHAP 4: DRIVER INPUT DATA KEPULANGAN (on_trip -> returned)
+     * TAHAP 4: PENGEMBALIAN KENDARAAN (on_trip -> returned)
      */
     public function completeTrip(Request $request, Booking $booking)
     {
@@ -689,73 +961,49 @@ class BookingController extends Controller
             abort(403, 'Akses ditolak.');
         }
 
-        if ($booking->status !== 'on_trip') {
-            return back()->withErrors(['error' => 'Status perjalanan tidak valid untuk diselesaikan.']);
-        }
+        $validated = $request->validate([
+            'end_fuel_level'       => ['required', 'string', 'max:20'],
+            'end_photo'            => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'items'                => ['required', 'string'],
+            'signature'            => ['nullable', 'string'],
+            'has_incident'         => ['nullable', 'string'],
+            'condition_notes'      => ['required_if:has_incident,true', 'nullable', 'string'],
+            'condition_photos'     => ['required_if:has_incident,true', 'array', 'min:1', 'max:5'],
+            'condition_photos.*'   => ['image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'return_letter_number' => ['nullable', 'required_if:letter_type,nota_dinas', 'string', 'max:255'],
+            'return_letter_file'   => ['nullable', 'required_if:letter_type,nota_dinas', 'file', 'mimes:pdf', 'max:5120'],
+            'is_washed'            => ['nullable', 'boolean'],
+            'wash_receipt_photo'   => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
 
         $log = $booking->log;
         if (!$log) {
-            return back()->withErrors(['error' => 'Data log keberangkatan kendaraan tidak ditemukan.']);
+            return back()->withErrors(['error' => 'Log keberangkatan kendaraan tidak ditemukan.']);
         }
 
-        // Hitung durasi hari untuk aturan cuci mobil
-        $startDate  = \Carbon\Carbon::parse($booking->start_date);
-        $endDate    = \Carbon\Carbon::parse($booking->end_date);
-        $isMultiDay = $startDate->diffInDays($endDate) >= 1;
+        // Cek apakah sudah ada TTD pemohon/driver untuk dokumen Formulir Pengembalian atau BAST Pengembalian
+        $existingSignature = BookingSignature::where('booking_id', $booking->id)
+            ->whereIn('document_type', ['formulir_pengembalian', 'bast_pengembalian'])
+            ->where('signer_role', 'pemohon')
+            ->first();
 
-        $rules = [
-            'end_fuel_level'       => ['required', 'string', 'max:20'],
-            'end_photo'            => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
-            
-            // Checklist Post-Trip
-            'body_condition'       => ['nullable', 'boolean'],
-            'tires_condition'      => ['nullable', 'boolean'],
-            'lights_condition'     => ['nullable', 'boolean'],
-            'glass_mirrors'        => ['nullable', 'boolean'],
-            'brakes_condition'     => ['nullable', 'boolean'],
-            'interior_cleanliness' => ['nullable', 'boolean'],
-            'has_stnk'             => ['nullable', 'boolean'],
-            'has_spare_tire'       => ['nullable', 'boolean'],
-            'has_jack_tools'       => ['nullable', 'boolean'],
-            'has_first_aid'        => ['nullable', 'boolean'],
-
-            'condition_notes'      => ['nullable', 'string'],
-            'condition_photos'     => ['nullable', 'array'],
-            'condition_photos.*'   => ['image', 'mimes:jpg,jpeg,png', 'max:2048'],
-        ];
-
-        // Syarat perjalanan multi-hari wajib dikembalikan bersih
-        if ($isMultiDay) {
-            $rules['is_washed']          = ['required', 'accepted'];
-            $rules['wash_receipt_photo'] = ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'];
-        }
-
-        $messages = [
-            'is_washed.required'          => 'Untuk perjalanan lebih dari 1 hari, Anda wajib mengonfirmasi kendaraan sudah dicuci bersih.',
-            'is_washed.accepted'          => 'Anda harus menyetujui bahwa kendaraan telah dicuci bersih.',
-            'wash_receipt_photo.required' => 'Wajib mengunggah foto nota/bukti cuci mobil untuk perjalanan multi-hari.',
-        ];
-
-        $validated = $request->validate($rules, $messages);
-
-        // Pengecekan jika ada kerusakan/masalah baru dibanding saat berangkat
-        $physicalItems = ['body_condition', 'tires_condition', 'lights_condition', 'glass_mirrors', 'brakes_condition', 'interior_cleanliness'];
-        $hasDamage = false;
-        foreach ($physicalItems as $item) {
-            if (!$request->boolean($item)) {
-                $hasDamage = true;
-                break;
-            }
-        }
-
-        if ($hasDamage && empty($validated['condition_notes'])) {
-            return back()->withInput()->withErrors([
-                'condition_notes' => 'Terdapat bagian fisik kendaraan yang bermasalah. Mohon berikan deskripsi catatan kendala/kerusakan.'
+        // Jika TTD belum pernah ada DAN canvas diisi kosong -> kembalikan error
+        if (!$existingSignature && !$request->filled('signature')) {
+            throw ValidationException::withMessages([
+                'signature' => 'Tanda tangan pengesahan pengembalian wajib dibubuhkan.'
             ]);
         }
 
-        if ($request->hasFile('end_photo')) {
-            $validated['end_photo'] = $request->file('end_photo')->store('vehicle_logs/ends', 'public');
+        // Upload berkas pengembalian
+        $endPhotoPath = $request->file('end_photo')->store('vehicle_logs/returns', 'public');
+        
+        $uploadedConditionPhotos = [];
+        if ($request->hasFile('condition_photos')) {
+            foreach ($request->file('condition_photos') as $photo) {
+                if ($photo->isValid()) {
+                    $uploadedConditionPhotos[] = $photo->store('vehicle_logs/incidents', 'public');
+                }
+            }
         }
 
         $washReceiptPath = null;
@@ -763,62 +1011,99 @@ class BookingController extends Controller
             $washReceiptPath = $request->file('wash_receipt_photo')->store('vehicle_logs/washes', 'public');
         }
 
-        $uploadedConditionPhotos = [];
-        if ($request->hasFile('condition_photos')) {
-            foreach ($request->file('condition_photos') as $photo) {
-                $uploadedConditionPhotos[] = $photo->store('vehicle_logs/incidents', 'public');
-            }
+        $returnLetterFilePath = null;
+        if ($request->hasFile('return_letter_file')) {
+            $returnLetterFilePath = $request->file('return_letter_file')->store('booking_letters', 'public');
         }
 
-        DB::transaction(function () use ($booking, $log, $validated, $uploadedConditionPhotos, $currentUser, $request, $isMultiDay, $washReceiptPath) {
+        DB::transaction(function () use ($booking, $log, $validated, $endPhotoPath, $uploadedConditionPhotos, $washReceiptPath, $returnLetterFilePath, $currentUser, $request, $existingSignature) {
+            // Update Vehicle Log
+            $currentNotes  = $log->condition_notes ?? ['start' => null, 'end' => null];
+            $currentPhotos = $log->condition_photos ?? ['start' => [], 'end' => []];
+
+            $currentNotes['end']  = $validated['condition_notes'] ?? null;
+            $currentPhotos['end'] = $uploadedConditionPhotos;
+
             $log->update([
                 'checked_in_at'    => now(),
                 'end_fuel_level'   => $validated['end_fuel_level'],
-                'end_photo'        => $validated['end_photo'] ?? null,
-                'condition_notes'  => $validated['condition_notes'] ?? null,
-                'condition_photos' => !empty($uploadedConditionPhotos) ? json_encode($uploadedConditionPhotos) : null,
+                'end_photo'        => $endPhotoPath,
+                'condition_notes'  => $currentNotes,
+                'condition_photos' => $currentPhotos,
             ]);
 
-            // Simpan data Post-Trip Checklist
+            // SIMPAN / UPDATE FILE TANDA TANGAN PENDIRIAN UNTUK FORMULIR & BAST PENGEMBALIAN
+            $signaturePath = $existingSignature ? $existingSignature->signature_path : null;
+
+            if ($request->filled('signature')) {
+                // Hapus TTD lama dari storage jika ada
+                if ($existingSignature && $existingSignature->signature_path) {
+                    if (Storage::disk('public')->exists($existingSignature->signature_path)) {
+                        Storage::disk('public')->delete($existingSignature->signature_path);
+                    }
+                }
+
+                // Dekode Base64 & Simpan Gambar PNG
+                $base64Image = $request->input('signature');
+                @list(, $fileData) = explode(';', $base64Image);
+                @list(, $fileData) = explode(',', $fileData);
+                $decodedImage = base64_decode($fileData);
+
+                $fileName = 'signatures/sig_return_' . $booking->id . '_' . Str::random(10) . '.png';
+                Storage::disk('public')->put($fileName, $decodedImage);
+                $signaturePath = $fileName;
+
+                // Catat TTD ke DB untuk KEDUA JENIS DOKUMEN (Formulir Pengembalian & BAST Pengembalian)
+                $documentsToSign = ['formulir_pengembalian', 'bast_pengembalian'];
+
+                foreach ($documentsToSign as $docType) {
+                    BookingSignature::updateOrCreate(
+                        [
+                            'booking_id'    => $booking->id,
+                            'document_type' => $docType,
+                            'signer_role'   => 'pemohon',
+                        ],
+                        [
+                            'user_id'        => $currentUser->id,
+                            'signature_path' => $fileName,
+                            'signed_at'      => now(),
+                        ]
+                    );
+                }
+            }
+
+            // Update Booking Status
+            $bookingUpdateData = [
+                'status'         => 'returned',
+                'returned_at'    => now(),
+                'user_signature' => $signaturePath,
+            ];
+
+            if ($booking->letter_type === 'nota_dinas') {
+                $bookingUpdateData['return_letter_number'] = $validated['return_letter_number'] ?? null;
+                if ($returnLetterFilePath) {
+                    $bookingUpdateData['return_letter_file'] = $returnLetterFilePath;
+                }
+            }
+
+            $booking->update($bookingUpdateData);
+
+            // Buat Record Checklist Pengembalian
+            $items = json_decode($validated['items'], true);
             TripChecklist::create([
-                'booking_id'           => $booking->id,
-                'vehicle_id'           => $booking->vehicle_id,
-                'vehicle_log_id'       => $log->id,
-                'type'                 => 'end',
-                'body_condition'       => $request->boolean('body_condition'),
-                'tires_condition'      => $request->boolean('tires_condition'),
-                'lights_condition'     => $request->boolean('lights_condition'),
-                'glass_mirrors'        => $request->boolean('glass_mirrors'),
-                'brakes_condition'     => $request->boolean('brakes_condition'),
-                'interior_cleanliness' => $request->boolean('interior_cleanliness'),
-                'has_stnk'             => $request->boolean('has_stnk'),
-                'has_spare_tire'       => $request->boolean('has_spare_tire'),
-                'has_jack_tools'       => $request->boolean('has_jack_tools'),
-                'has_first_aid'        => $request->boolean('has_first_aid'),
-                'is_washed'            => $isMultiDay ? $request->boolean('is_washed') : true,
-                'wash_receipt_photo'   => $washReceiptPath,
-                'notes'                => $validated['condition_notes'] ?? null,
-                'created_by'           => $currentUser->id,
-            ]);
-
-            // Status berubah ke RETURNED (Menunggu Peninjauan Admin Lapangan)
-            $booking->update([
-                'status' => 'returned',
+                'booking_id'         => $booking->id,
+                'vehicle_id'         => $booking->vehicle_id,
+                'vehicle_log_id'     => $log->id,
+                'type'               => 'end',
+                'items'              => $items,
+                'notes'              => $validated['condition_notes'] ?? null,
+                'is_washed'          => $request->boolean('is_washed'),
+                'wash_receipt_photo' => $washReceiptPath,
+                'created_by'         => $currentUser->id,
             ]);
         });
 
-        // Notifikasi WA ke Admin Lapangan
-        $adminPhones = User::where('role', 'admin_lap')->pluck('phone')->filter()->toArray();
-        if (!empty($adminPhones)) {
-            $msgAdmin = "🚗 *KENDARAAN DINAS KEMBALI*\n\n"
-                . "No. Surat: *" . $booking->letter_number . "*\n"
-                . "Pemohon: *" . ($booking->user->name ?? '-') . "*\n\n"
-                . "Mohon periksa fisik kendaraan dan lakukan konfirmasi peninjauan di sistem.";
-
-            WhatsAppService::sendBulkMessage($adminPhones, $msgAdmin);
-        }
-
-        return redirect()->route('bookings.index')->with('success', 'Data kepulangan kendaraan dan checklist berhasil dimasukkan.');
+        return redirect()->route('bookings.index')->with('success', 'Perjalanan dinas berhasil diselesaikan dan kendaraan telah dikembalikan.');
     }
 
     /**
@@ -837,43 +1122,77 @@ class BookingController extends Controller
             return back()->withErrors(['error' => 'Status permohonan harus "returned" untuk ditinjau.']);
         }
 
-        // Validasi penyesuaian checklist & status cuci mobil oleh Admin Lapangan
+        // Cek ketersediaan TTD lama Admin Lapangan untuk BAST Pengembalian
+        $existingSignature = BookingSignature::where('booking_id', $booking->id)
+            ->where('document_type', 'bast_pengembalian')
+            ->where('signer_role', 'admin_lap')
+            ->first();
+
+        // Validasi penyesuaian checklist dinamis & status cuci mobil oleh Admin Lapangan
         $validated = $request->validate([
-            'body_condition'           => ['nullable', 'boolean'],
-            'tires_condition'          => ['nullable', 'boolean'],
-            'lights_condition'         => ['nullable', 'boolean'],
-            'glass_mirrors'            => ['nullable', 'boolean'],
-            'brakes_condition'         => ['nullable', 'boolean'],
-            'interior_cleanliness'     => ['nullable', 'boolean'],
-            'has_stnk'                 => ['nullable', 'boolean'],
-            'has_spare_tire'           => ['nullable', 'boolean'],
-            'has_jack_tools'           => ['nullable', 'boolean'],
-            'has_first_aid'            => ['nullable', 'boolean'],
-            'is_washed'                => ['nullable', 'boolean'], // Tambahan untuk cuci mobil
+            'signature'                => ['nullable', 'string'],
+            'items'                    => ['required', 'string'], // Menerima JSON String items dari form admin
+            'is_washed'                => ['nullable', 'boolean'],
             'admin_verification_notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        DB::transaction(function () use ($booking, $currentUser, $request, $validated) {
+        // Decode items JSON
+        $items = json_decode($validated['items'], true);
+        if (!is_array($items)) {
+            return back()->withInput()->withErrors(['items' => 'Format data checklist tidak valid.']);
+        }
+
+        // Jika TTD belum pernah ada dan input signature di form kosong
+        if (!$existingSignature && !$request->filled('signature')) {
+            throw ValidationException::withMessages([
+                'signature' => 'Tanda tangan verifikasi Admin Lapangan wajib dibubuhkan.'
+            ]);
+        }
+
+        DB::transaction(function () use ($booking, $currentUser, $request, $validated, $existingSignature, $items) {
+            // 1. Simpan / Update TTD jika ada input signature baru
+            if ($request->filled('signature')) {
+                if ($existingSignature && $existingSignature->signature_path) {
+                    if (Storage::disk('public')->exists($existingSignature->signature_path)) {
+                        Storage::disk('public')->delete($existingSignature->signature_path);
+                    }
+                }
+
+                $base64Image = $request->input('signature');
+                @list(, $fileData) = explode(';', $base64Image);
+                @list(, $fileData) = explode(',', $fileData);
+                $decodedImage = base64_decode($fileData);
+
+                $fileName = 'signatures/sig_admin_lap_return_' . $booking->id . '_' . Str::random(8) . '.png';
+                Storage::disk('public')->put($fileName, $decodedImage);
+
+                BookingSignature::updateOrCreate(
+                    [
+                        'booking_id'    => $booking->id,
+                        'document_type' => 'bast_pengembalian',
+                        'signer_role'   => 'admin_lap',
+                    ],
+                    [
+                        'user_id'        => $currentUser->id,
+                        'signature_path' => $fileName,
+                        'signed_at'      => now(),
+                    ]
+                );
+            }
+
+            // 2. Update status booking ke CHECKED
             $booking->update([
                 'status'              => 'checked',
                 'returned_checked_by' => $currentUser->id,
                 'returned_checked_at' => now(),
             ]);
 
+            // 3. Update / Create Checklist Kepulangan Snapshot JSON
             $endChecklist = $booking->checklists()->where('type', 'end')->first();
 
             $checklistData = [
-                'body_condition'       => $request->boolean('body_condition'),
-                'tires_condition'      => $request->boolean('tires_condition'),
-                'lights_condition'     => $request->boolean('lights_condition'),
-                'glass_mirrors'        => $request->boolean('glass_mirrors'),
-                'brakes_condition'     => $request->boolean('brakes_condition'),
-                'interior_cleanliness' => $request->boolean('interior_cleanliness'),
-                'has_stnk'             => $request->boolean('has_stnk'),
-                'has_spare_tire'       => $request->boolean('has_spare_tire'),
-                'has_jack_tools'       => $request->boolean('has_jack_tools'),
-                'has_first_aid'        => $request->boolean('has_first_aid'),
-                'is_washed'            => $request->boolean('is_washed'), // Diperbarui dari form admin
+                'items'     => $items,
+                'is_washed' => $request->boolean('is_washed'),
             ];
 
             if ($endChecklist) {
@@ -888,6 +1207,7 @@ class BookingController extends Controller
                 ]));
             }
 
+            // 4. Update Vehicle Log Verifikasi Admin
             if ($booking->log) {
                 $booking->log->update([
                     'is_verified_by_admin'     => true,
@@ -911,7 +1231,7 @@ class BookingController extends Controller
             }
         }
 
-        return redirect()->route('bookings.index')->with('success', 'Hasil verifikasi fisik berhasil disesuaikan dan dikonfirmasi.');
+        return redirect()->route('bookings.index')->with('success', 'Hasil verifikasi fisik dan tanda tangan berhasil disesuaikan.');
     }
 
     public function edit(Booking $booking)
@@ -956,12 +1276,19 @@ class BookingController extends Controller
 
         $validated = $request->validated();
 
+        // Perbarui jenis dokumen (surat_tugas / nota_dinas)
+        $validated['letter_type'] = $request->input('letter_type', $booking->letter_type); // <-- BARU
+
         $validated['participants'] = isset($validated['participants']) 
             ? array_values(array_filter($validated['participants'])) 
             : [];
 
         if ($validated['vehicle_type'] === 'operational') {
-            $validated['vehicle_id'] = null;
+            if ($booking->draft_booking_id && $booking->draftBooking) {
+                $validated['vehicle_id'] = $booking->draftBooking->vehicle_id;
+            } else {
+                $validated['vehicle_id'] = null;
+            }
         }
 
         if (!empty($validated['vehicle_id'])) {
@@ -1016,26 +1343,8 @@ class BookingController extends Controller
             $validated['letter_slug'] = $this->generateUniqueSlug($validated['letter_number'], $booking->id);
         }
 
-        // Jika permohonan sebelumnya ditolak dan diperbaiki, ubah status kembali ke pending
         if ($booking->status === 'rejected') {
             $validated['status'] = 'pending';
-            $adminPhones = User::where('role', 'admin_lap')->pluck('phone')->filter()->toArray();
-
-            if (!empty($adminPhones)) {
-                $startDateStr = \Carbon\Carbon::parse($validated['start_date'])->format('d/m/Y H:i');
-                $endDateStr   = \Carbon\Carbon::parse($validated['end_date'])->format('d/m/Y H:i');
-                $applicantName = $booking->user->name ?? Auth::user()->name;
-
-                $msgAdmin = "📩 *PERMOHONAN PEMINJAMAN DIPERBARUI*\n\n"
-                    . "No. Surat: {$validated['letter_number']}\n"
-                    . "Pemohon: {$applicantName}\n"
-                    . "Tipe Armada: " . strtoupper($validated['vehicle_type']) . "\n"
-                    . "Tujuan: {$validated['destination']}\n"
-                    . "Jadwal: {$startDateStr} s.d. {$endDateStr}\n\n"
-                    . "Mohon lakukan alokasi armada dan driver via dashboard.";
-
-                WhatsAppService::sendBulkMessage($adminPhones, $msgAdmin);
-            }
         }
 
         $booking->update($validated);

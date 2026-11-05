@@ -12,7 +12,10 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::orderBy('name', 'asc')->paginate(10);
+        // Hanya ambil kolom spesifik yang dipakai oleh tampilan tabel/kartu
+        $users = User::select(['id', 'name', 'nip', 'pangkat', 'jabatan', 'email', 'department', 'role', 'slug'])
+            ->orderBy('name', 'asc')
+            ->paginate(10);
 
         return view('admin.users.index', compact('users'));
     }
@@ -31,13 +34,12 @@ class UserController extends Controller
             'password'   => 'required|string|min:8',
             'role'       => 'required|in:admin_app,admin_lap,pegawai,approver,driver',
             'phone'      => 'nullable|string|max:20',
-            'pangkat'     => 'nullable|string|max:100',
+            'pangkat'    => 'nullable|string|max:100',
             'jabatan'    => 'nullable|string|max:100',
             'department' => 'nullable|string|max:100',
         ], [
-            // 💡 Tambahkan pesan kustom di sini agar pesan tidak keluar 'validation.unique':
-            'nip.unique'   => 'NIP yang Anda masukkan sudah terdaftar pada akun lain.',
-            'email.unique' => 'Alamat Email Dinas yang Anda masukkan sudah terdaftar.',
+            'nip.unique'     => 'NIP yang Anda masukkan sudah terdaftar pada akun lain.',
+            'email.unique'   => 'Alamat Email Dinas yang Anda masukkan sudah terdaftar.',
             'email.required' => 'Alamat Email Dinas wajib diisi.',
             'role.required'  => 'Role / Hak Akses wajib dipilih.',
         ]);
@@ -62,14 +64,13 @@ class UserController extends Controller
             'email'      => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'role'       => 'required|in:admin_app,admin_lap,pegawai,approver,driver',
             'phone'      => 'nullable|string|max:20',
-            'pangkat'     => 'nullable|string|max:100',
+            'pangkat'    => 'nullable|string|max:100',
             'jabatan'    => 'nullable|string|max:100',
             'department' => 'nullable|string|max:100',
         ], [
-            // 💡 Tambahkan pesan kustom di sini agar pesan tidak keluar 'validation.unique':
-            'role.in' => 'Role / Hak Akses yang dipilih tidak valid.',
-            'nip.unique'   => 'NIP yang Anda masukkan sudah terdaftar pada akun lain.',
-            'email.unique' => 'Alamat Email Dinas yang Anda masukkan sudah terdaftar.',
+            'role.in'        => 'Role / Hak Akses yang dipilih tidak valid.',
+            'nip.unique'     => 'NIP yang Anda masukkan sudah terdaftar pada akun lain.',
+            'email.unique'   => 'Alamat Email Dinas yang Anda masukkan sudah terdaftar.',
             'email.required' => 'Alamat Email Dinas wajib diisi.',
             'role.required'  => 'Role / Hak Akses wajib dipilih.',
         ]);

@@ -17,12 +17,19 @@ return new class extends Migration
             // Relasi ke Draft Request (Layer 1)
             $table->foreignId('draft_booking_id')->nullable()->constrained('draft_bookings')->nullOnDelete();
 
-            // Berkas & Nomor Dokumen
-            $table->string('letter_number', 100); // Nomor Surat Perintah (Ganti booking_code)
+            // Berkas & Nomor Dokumen Awal
+            $table->enum('letter_type', ['surat_tugas', 'nota_dinas'])->default('surat_tugas'); // <-- BARU: Tipe Surat
+            $table->string('letter_number', 100); 
             $table->string('letter_slug', 120)->unique();
-            $table->string('letter_file'); // Path file PDF Surat Perintah
-            $table->string('bast_peminjaman', 100)->nullable(); // Nomor Berita Acara Serah Terima (BAST)
-            $table->string('bast_pengembalian', 100)->nullable(); // Nomor Berita Acara Serah Terima (BAST)
+            $table->string('letter_file'); // Path PDF Dokumen Awal (Surat Tugas / Nota Dinas)
+            
+            // Berkas Susulan Pengembalian (Wajib jika letter_type = nota_dinas)
+            $table->string('return_letter_number', 100)->nullable(); 
+            $table->string('return_letter_file')->nullable(); // <-- BARU: PDF Surat Tugas Susulan saat pengembalian
+            
+            // Nomor Berita Acara Serah Terima (BAST)
+            $table->string('bast_peminjaman', 100)->nullable(); 
+            $table->string('bast_pengembalian', 100)->nullable(); 
 
             // Pemohon, Unit Armada, & Driver
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
@@ -36,23 +43,20 @@ return new class extends Migration
             $table->dateTime('end_date');
             $table->string('destination');
             $table->text('purpose');
-            $table->json('participants')->nullable(); // Array JSON anggota tim
+            $table->json('participants')->nullable(); 
             $table->enum('status', ['pending', 'waiting', 'approved', 'rejected', 'on_trip', 'returned', 'checked', 'completed', 'canceled'])->default('pending');
             $table->text('admin_note')->nullable();
 
-            // 1. TAHAP ALOKASI (Oleh Admin Sarpras / Pengelola)
+            // Audit Trail Alur Verifikasi
             $table->foreignId('allocated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('allocated_at')->nullable();
 
-            // 2. TAHAP PERSETUJUAN (Oleh Atasan / Kepala Bagian)
             $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('approved_at')->nullable();
 
-            // 3. TAHAP PENGEMBALIAN (Cek Fisik Oleh Admin)
             $table->foreignId('returned_checked_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('returned_checked_at')->nullable();
 
-            // 4. TAHAP PERSETUJUAN (Oleh Atasan)
             $table->foreignId('returned_approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('returned_approved_at')->nullable();
             

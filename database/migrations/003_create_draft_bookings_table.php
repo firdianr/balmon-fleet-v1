@@ -14,16 +14,13 @@ return new class extends Migration
             
             // Tipe & Alokasi Armada/Driver
             $table->enum('vehicle_type', ['operational', 'monitoring']);
+            $table->enum('drivetrain', ['2wd', '4wd'])->default('2wd');
             $table->foreignId('vehicle_id')->nullable()->constrained('vehicles')->nullOnDelete();
             $table->foreignId('driver_id')->nullable()->constrained('users')->nullOnDelete();
             
             // Detail Perjalanan Informal
             $table->dateTime('start_date');
             $table->dateTime('end_date');
-            $table->string('destination');
-            $table->text('purpose');
-            $table->text('vehicle_requirements')->nullable();
-            $table->json('participants')->nullable();
             
             // Status Layer 1
             // draft: diajukan pegawai | approved: disetujui admin lap | rejected: ditolak | converted: sudah di-upload surat tugas & masuk ke booking resmi

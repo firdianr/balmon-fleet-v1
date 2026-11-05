@@ -16,6 +16,7 @@ class StoreBookingRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'letter_type'   => ['required', 'in:surat_tugas,nota_dinas'],
             'letter_number' => [
                 'required',
                 'string',

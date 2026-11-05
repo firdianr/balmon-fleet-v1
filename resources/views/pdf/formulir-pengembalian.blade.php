@@ -115,6 +115,10 @@
         Demikian Formulir Pengembalian Kendaraan Operasional/Fungsional ini dibuat untuk dipergunakan sebagaimana mestinya.
     </p>
 
+    @php
+        $sigPemohonReturn = $booking->getSignature('formulir_pengembalian', 'pemohon');
+    @endphp
+
     <table class="ttd-table" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
         <tr>
             <td style="width: 50%;"></td>
@@ -125,7 +129,14 @@
         </tr>
         <tr>
             <td></td>
-            <td style="height: 75px;"></td>
+            <td style="height: 75px; vertical-align: middle; text-align: center;">
+                @if($sigPemohonReturn && $sigPemohonReturn->signature_path && file_exists(public_path('storage/' . $sigPemohonReturn->signature_path)))
+                    <img src="{{ public_path('storage/' . $sigPemohonReturn->signature_path) }}" 
+                        style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
+                @else
+                    <div style="height: 70px;"></div>
+                @endif
+            </td>
         </tr>
         <tr>
             <td></td>

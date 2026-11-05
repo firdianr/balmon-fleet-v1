@@ -2,55 +2,53 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Booking;
 use App\Models\DraftBooking;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Services\WhatsAppService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class DraftBookingController extends Controller
 {
     /**
-     * Daftar Draft Request (Layer 1)
+     * Menampilkan daftar draft permohonan armada (Layer 1).
      */
     public function index()
     {
         /** @var User $user */
         $user = Auth::user();
 
-        $drafts = DraftBooking::with(['user', 'vehicle', 'driver', 'reviewer'])
+        $drafts = DraftBooking::with(['user', 'vehicle', 'driver', 'reviewer', 'booking'])
             ->when(!in_array($user->role, ['admin_app', 'admin_lap', 'approver']), function ($query) use ($user) {
-                $query->where('user_id', $user->id)
-                    ->orWhereJsonContains('participants', (string) $user->id)
-                    ->orWhereJsonContains('participants', (int) $user->id);
+                $query->where('user_id', $user->id);
             })
             ->latest()
             ->paginate(10);
 
-        $availableVehicles = Vehicle::where('status', '!=', 'maintenance')->orderBy('code', 'asc')->get();
-        $primaryDrivers    = User::where('role', 'driver')->orderBy('name', 'asc')->get();
-        $nonDrivers        = User::where('role', '!=', 'driver')->orderBy('name', 'asc')->get();
-        $availableDrivers  = $primaryDrivers->concat($nonDrivers);
+        // Master data kendaraan dan driver untuk modal review Admin Lapangan
+        $vehicles = Vehicle::where('status', '!=', 'maintenance')
+            ->orderBy('code', 'asc')
+            ->get();
 
-        return view('draft_bookings.index', compact('drafts', 'availableVehicles', 'availableDrivers'));
+        $drivers = User::where('role', 'driver')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        return view('draft_bookings.index', compact('drafts', 'vehicles', 'drivers'));
     }
 
     /**
-     * Form Pengajuan Draft (Tanpa Surat Tugas)
+     * Menampilkan formulir pengajuan draft permohonan baru.
      */
     public function create()
     {
-        // Mengambil semua armada aktif (Operasional & Monitoring)
         $vehicles = Vehicle::where('status', '!=', 'maintenance')
             ->orderBy('type', 'asc')
             ->orderBy('brand', 'asc')
             ->get();
 
-        // Mengambil daftar driver & personel pendukung
         $drivers = User::where('role', 'driver')
             ->orderBy('name', 'asc')
             ->get();
@@ -59,157 +57,200 @@ class DraftBookingController extends Controller
     }
 
     /**
-     * Simpan Permohonan Draft Baru
+     * Menyimpan data draft permohonan armada baru.
      */
     public function store(Request $request)
     {
-        // Validasi input beserta pesan kustom Bahasa Indonesia
         $validated = $request->validate([
             'start_date' => ['required', 'date', 'after_or_equal:today'],
             'end_date'   => ['required', 'date', 'after_or_equal:start_date'],
             'driver_id'  => ['nullable', 'exists:users,id'],
-            'vehicle_id' => ['required', 'exists:vehicles,id'],
+            'drivetrain' => ['required', 'in:2wd,4wd'],
+            'vehicle_id' => ['nullable', 'required_if:drivetrain,4wd', 'exists:vehicles,id'],
         ], [
-            'start_date.required'       => 'Waktu tanggal mulai peminjaman wajib dipilih.',
-            'start_date.date'           => 'Format tanggal mulai tidak valid.',
-            'start_date.after_or_equal' => 'Tanggal mulai peminjaman minimal hari ini.',
-            
-            'end_date.required'         => 'Waktu tanggal selesai peminjaman wajib dipilih.',
-            'end_date.date'             => 'Format tanggal selesai tidak valid.',
-            'end_date.after_or_equal'   => 'Tanggal selesai tidak boleh sebelum tanggal mulai.',
-            
-            'vehicle_id.required'       => 'Silakan pilih unit kendaraan terlebih dahulu.',
-            'vehicle_id.exists'         => 'Unit kendaraan yang dipilih tidak valid.',
-            
-            'driver_id.exists'          => 'Driver yang dipilih tidak terdaftar.',
+            'start_date.required'       => 'Waktu mulai peminjaman wajib diisi.',
+            'start_date.after_or_equal' => 'Waktu mulai minimal hari ini.',
+            'end_date.required'         => 'Waktu selesai peminjaman wajib diisi.',
+            'end_date.after_or_equal'   => 'Waktu selesai tidak boleh sebelum waktu mulai.',
+            'drivetrain.required'       => 'Pilih sistem penggerak roda (2WD / 4WD).',
+            'vehicle_id.required_if'    => 'Silakan pilih unit kendaraan untuk kebutuhan 4WD.',
+            'vehicle_id.exists'         => 'Unit kendaraan tidak valid.',
+            'driver_id.exists'          => 'Driver tidak terdaftar.',
         ]);
 
-        $vehicle = Vehicle::findOrFail($validated['vehicle_id']);
+        $vehicle = !empty($validated['vehicle_id']) ? Vehicle::find($validated['vehicle_id']) : null;
 
         $validated['user_id']      = Auth::id();
-        $validated['vehicle_type'] = $vehicle->type;
-        $validated['destination']  = $request->input('destination', 'Dalam / Luar Kota');
-        $validated['purpose']      = $request->input('purpose', 'Permohonan Armada');
+        $validated['vehicle_type'] = $vehicle ? $vehicle->type : 'operational';
         $validated['status']       = 'draft';
 
         $draft = DraftBooking::create($validated);
 
-        // Notifikasi WA ke Admin Lapangan
+        // Notifikasi WhatsApp ke Admin Lapangan
         $adminPhones = User::where('role', 'admin_lap')->pluck('phone')->filter()->toArray();
         if (!empty($adminPhones)) {
-            $msgAdmin = "📝 *PERMOHONAN ARMADA BARU*\n\n"
+            $startDate   = Carbon::parse($draft->start_date)->format('d/m/Y H:i');
+            $endDate     = Carbon::parse($draft->end_date)->format('d/m/Y H:i');
+            $vehicleText = $vehicle ? "{$vehicle->brand} {$vehicle->model} ({$vehicle->plate_number})" : "Akan Ditentukan Admin Lapangan";
+
+            $msgAdmin = "📝 *PERMOHONAN DRAFT ARMADA BARU*\n\n"
                 . "Pemohon: " . Auth::user()->name . "\n"
-                . "Kendaraan: {$vehicle->brand} {$vehicle->model} ({$vehicle->plate_number})\n"
-                . "Jadwal: " . date('d/m/Y', strtotime($draft->start_date)) . " s.d. " . date('d/m/Y', strtotime($draft->end_date)) . "\n\n"
-                . "Mohon tinjau ketersediaan unit & driver via dashboard.";
+                . "Penggerak Roda: " . strtoupper($draft->drivetrain) . "\n"
+                . "Unit Armada: {$vehicleText}\n"
+                . "Jadwal: {$startDate} s.d. {$endDate}\n\n"
+                . "Mohon tinjau permohonan ini pada sistem Balmon Fleet.";
 
             WhatsAppService::sendBulkMessage($adminPhones, $msgAdmin);
         }
 
         return redirect()->route('draft-bookings.index')
-            ->with('success', 'Permohonan armada berhasil dikirim. Menunggu peninjauan Admin Lapangan.');
+            ->with('success', 'Permohonan draft armada berhasil diajukan! Menunggu peninjauan Admin Lapangan.');
     }
 
     /**
-     * Review/Plot Ketersediaan Armada oleh Admin Lapangan
+     * Menampilkan formulir edit draft permohonan.
+     */
+    public function edit(DraftBooking $draftBooking)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        if ($draftBooking->user_id !== $user->id && !in_array($user->role, ['admin_app', 'admin_lap'])) {
+            abort(403, 'Anda tidak memiliki hak akses untuk mengubah draft permohonan ini.');
+        }
+
+        if ($draftBooking->status === 'converted') {
+            return redirect()->route('draft-bookings.index')
+                ->with('error', 'Draft yang sudah dikonversi menjadi peminjaman resmi tidak dapat diubah.');
+        }
+
+        $vehicles = Vehicle::where('status', '!=', 'maintenance')
+            ->orderBy('type', 'asc')
+            ->orderBy('brand', 'asc')
+            ->get();
+
+        $drivers = User::where('role', 'driver')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        return view('draft_bookings.edit', compact('draftBooking', 'vehicles', 'drivers'));
+    }
+
+    /**
+     * Memperbarui data draft permohonan armada.
+     */
+    public function update(Request $request, DraftBooking $draftBooking)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        if ($draftBooking->user_id !== $user->id && !in_array($user->role, ['admin_app', 'admin_lap'])) {
+            abort(403, 'Anda tidak memiliki hak akses mengubah draft ini.');
+        }
+
+        if ($draftBooking->status === 'converted') {
+            return redirect()->route('draft-bookings.index')
+                ->with('error', 'Draft yang sudah dikonversi menjadi peminjaman resmi tidak dapat diubah.');
+        }
+
+        $validated = $request->validate([
+            'start_date' => ['required', 'date', 'after_or_equal:today'],
+            'end_date'   => ['required', 'date', 'after_or_equal:start_date'],
+            'driver_id'  => ['nullable', 'exists:users,id'],
+            'drivetrain' => ['required', 'in:2wd,4wd'],
+            'vehicle_id' => ['nullable', 'required_if:drivetrain,4wd', 'exists:vehicles,id'],
+        ], [
+            'start_date.required'       => 'Waktu mulai peminjaman wajib diisi.',
+            'start_date.after_or_equal' => 'Waktu mulai minimal hari ini.',
+            'end_date.required'         => 'Waktu selesai peminjaman wajib diisi.',
+            'end_date.after_or_equal'   => 'Waktu selesai tidak boleh sebelum waktu mulai.',
+            'drivetrain.required'       => 'Pilih sistem penggerak roda (2WD / 4WD).',
+            'vehicle_id.required_if'    => 'Silakan pilih unit kendaraan untuk kebutuhan 4WD.',
+            'vehicle_id.exists'         => 'Unit kendaraan tidak valid.',
+            'driver_id.exists'          => 'Driver tidak terdaftar.',
+        ]);
+
+        $vehicle = !empty($validated['vehicle_id']) ? Vehicle::find($validated['vehicle_id']) : null;
+
+        $validated['vehicle_id']   = $vehicle ? $vehicle->id : null;
+        $validated['vehicle_type'] = $vehicle ? $vehicle->type : 'operational';
+
+        $draftBooking->update($validated);
+
+        return redirect()->route('draft-bookings.index')
+            ->with('success', 'Data draft permohonan armada berhasil diperbarui.');
+    }
+
+    /**
+     * Peninjauan / Persetujuan ketersediaan armada oleh Admin Lapangan.
      */
     public function review(Request $request, DraftBooking $draftBooking)
     {
-        if (!in_array(Auth::user()->role, ['admin_app', 'admin_lap'])) {
-            abort(403, 'Anda tidak memiliki hak akses untuk meninjau permohonan ini.');
+        /** @var User $user */
+        $user = Auth::user();
+
+        if (!in_array($user->role, ['admin_app', 'admin_lap'])) {
+            abort(403, 'Anda tidak memiliki akses peninjauan.');
         }
 
         $validated = $request->validate([
             'action'     => ['required', 'in:approve,reject'],
+            'vehicle_id' => ['nullable', 'required_if:action,approve', 'exists:vehicles,id'],
+            'driver_id'  => ['nullable', 'exists:users,id'],
             'admin_note' => ['required_if:action,reject', 'nullable', 'string', 'max:500'],
         ], [
-            'action.required'        => 'Aksi peninjauan harus ditentukan.',
-            'admin_note.required_if' => 'Alasan penolakan wajib diisi jika permohonan ditolak.',
+            'vehicle_id.required_if' => 'Silakan alokasikan unit kendaraan sebelum menyetujui.',
+            'admin_note.required_if' => 'Alasan penolakan wajib diisi jika Anda menolak permohonan.',
         ]);
 
         if ($validated['action'] === 'approve') {
+            $vehicle = Vehicle::findOrFail($validated['vehicle_id']);
+
             $draftBooking->update([
-                'status'     => 'approved',
-                'admin_note' => $validated['admin_note'] ?? null,
+                'status'       => 'approved',
+                'vehicle_id'   => $vehicle->id,
+                'vehicle_type' => $vehicle->type,
+                'driver_id'    => $validated['driver_id'] ?? null,
+                'admin_note'   => $validated['admin_note'] ?? null,
+                'reviewed_by'  => $user->id,
+                'reviewed_at'  => now(),
             ]);
 
-            if ($draftBooking->user && $draftBooking->user->phone) {
-                $msgPemohon = "✅ *PERMOHONAN ARMADA DISETUJUI*\n\n"
-                    . "Halo {$draftBooking->user->name},\n"
-                    . "Permohonan armada Anda untuk tanggal " . \Carbon\Carbon::parse($draftBooking->start_date)->locale('id')->translatedFormat('d M Y') . " telah disetujui.\n\n"
-                    . "Armada: " . ($draftBooking->vehicle->brand ?? '-') . " " . ($draftBooking->vehicle->model ?? '') . "\n"
-                    . "Driver: " . ($draftBooking->driver->name ?? 'Lepas Kunci') . "\n\n"
-                    . "Silakan masuk ke aplikasi untuk mengunggah Surat Tugas resmi.";
-
-                WhatsAppService::sendMessage($draftBooking->user->phone, $msgPemohon);
-            }
-
-            $message = 'Permohonan armada berhasil disetujui.';
+            $msg = 'Permohonan draft armada berhasil disetujui dan alokasi unit telah disimpan.';
         } else {
             $draftBooking->update([
-                'status'     => 'rejected',
-                'admin_note' => $validated['admin_note'],
+                'status'      => 'rejected',
+                'admin_note'  => $validated['admin_note'],
+                'reviewed_by' => $user->id,
+                'reviewed_at' => now(),
             ]);
 
-            if ($draftBooking->user && $draftBooking->user->phone) {
-                $msgPemohon = "❌ *PERMOHONAN ARMADA DITOLAK*\n\n"
-                    . "Halo {$draftBooking->user->name},\n"
-                    . "Mohon maaf, permohonan armada Anda tidak dapat disetujui.\n\n"
-                    . "Alasan Penolakan: {$validated['admin_note']}\n";
-
-                WhatsAppService::sendMessage($draftBooking->user->phone, $msgPemohon);
-            }
-
-            $message = 'Permohonan armada telah ditolak.';
+            $msg = 'Permohonan draft armada telah ditolak.';
         }
 
-        return redirect()->route('draft-bookings.index')->with('success', $message);
+        return redirect()->route('draft-bookings.index')->with('success', $msg);
     }
 
     /**
-     * Konversi Draft (Layer 1) menjadi Booking Resmi (Layer 2) saat Surat Tugas di-upload
+     * Menghapus draft permohonan armada.
      */
-    public function convertToBooking(Request $request, DraftBooking $draftBooking)
+    public function destroy(DraftBooking $draftBooking)
     {
-        if ($draftBooking->status !== 'approved') {
-            return back()->withErrors(['error' => 'Draft permohonan harus disetujui terlebih dahulu oleh Admin Lapangan.']);
+        /** @var User $user */
+        $user = Auth::user();
+
+        if ($draftBooking->user_id !== $user->id && !in_array($user->role, ['admin_app', 'admin_lap'])) {
+            abort(403, 'Anda tidak memiliki hak akses untuk menghapus draft ini.');
         }
 
-        $request->validate([
-            'letter_number' => ['required', 'string', 'max:100', 'unique:bookings,letter_number'],
-            'letter_file'   => ['required', 'file', 'mimes:pdf', 'max:5120'],
-        ]);
+        if ($draftBooking->status === 'converted') {
+            return redirect()->route('draft-bookings.index')
+                ->with('error', 'Draft yang telah dikonversi menjadi peminjaman resmi tidak dapat dihapus.');
+        }
 
-        $filePath = $request->file('letter_file')->store('letters', 'public');
+        $draftBooking->delete();
 
-        DB::transaction(function () use ($draftBooking, $request, $filePath) {
-            // 1. Buat Record Baru di Tabel Bookings (Layer 2)
-            $booking = Booking::create([
-                'letter_number'        => $request->letter_number,
-                'letter_slug'          => \Illuminate\Support\Str::slug(str_replace('/', '-', $request->letter_number)),
-                'letter_file'          => $filePath,
-                'user_id'              => $draftBooking->user_id,
-                'vehicle_type'         => $draftBooking->vehicle_type,
-                'vehicle_id'           => $draftBooking->vehicle_id,
-                'driver_id'            => $draftBooking->driver_id,
-                'vehicle_requirements' => $draftBooking->vehicle_requirements,
-                'start_date'           => $draftBooking->start_date,
-                'end_date'             => $draftBooking->end_date,
-                'destination'          => $draftBooking->destination,
-                'purpose'              => $draftBooking->purpose,
-                'participants'         => $draftBooking->participants,
-                'status'               => 'waiting', // Masuk ke alur Layer 2 persetujuan Approver
-                'allocated_by'         => $draftBooking->reviewed_by,
-                'allocated_at'         => $draftBooking->reviewed_at,
-            ]);
-
-            // 2. Ubah Status Draft menjadi Converted
-            $draftBooking->update([
-                'status' => 'converted',
-            ]);
-        });
-
-        return redirect()->route('bookings.index')
-            ->with('success', 'Surat Tugas berhasil diunggah! Permohonan telah resmi masuk ke alur SOP Peminjaman.');
+        return redirect()->route('draft-bookings.index')
+            ->with('success', 'Draft permohonan armada berhasil dihapus.');
     }
 }

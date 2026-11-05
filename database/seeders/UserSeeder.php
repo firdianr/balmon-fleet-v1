@@ -57,6 +57,7 @@ class UserSeeder extends Seeder
                 'nip'        => '199109252025211035',
                 'email'      => 'ardiansyah@balmon.go.id',
                 'phone'      => '085169427857',
+                'role'       => 'driver',
                 'pangkat'    => 'Pengatur Muda PPPK V',
                 'jabatan'    => 'PFR Ahli Muda',
                 'department' => 'Tim Monitoring dan Penertiban Spektrum Frekuensi Radio',

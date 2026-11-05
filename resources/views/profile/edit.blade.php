@@ -13,8 +13,8 @@
     <div class="py-8 bg-slate-50 min-h-screen">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             
-            {{-- Header Card / Profile Summary Banner --}}
-            <div class="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 rounded-2xl shadow-lg p-6 sm:p-8 text-white relative overflow-hidden">
+            {{-- Header Card / Profile Summary Banner (Solid Blue + Efek Blur) --}}
+            <div class="bg-indigo-600 rounded-2xl shadow-lg p-6 sm:p-8 text-white relative overflow-hidden">
                 <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
                 <div class="relative z-10 flex flex-col sm:flex-row items-center gap-6">
                     <div class="w-20 h-20 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl font-bold border-2 border-white/30 text-white shadow-inner">

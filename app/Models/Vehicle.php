@@ -18,6 +18,7 @@ class Vehicle extends Model
         'model',
         'code',
         'type',
+        'drivetrain',
         'capacity',
         'fuel_type',
         'status',

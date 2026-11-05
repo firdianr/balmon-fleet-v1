@@ -1,7 +1,12 @@
-<!-- MODAL VERIFIKASI PEMERIKSAAN FISIK OLEH ADMIN LAPANGAN -->
+<!-- MODAL VERIFIKASI PEMERIKSAAN FISIK DINAMIS OLEH ADMIN LAPANGAN -->
 <div x-show="showVerifyReturnModal" 
-    class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50"
-    x-transition
+    class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 top-0"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0 scale-95"
+    x-transition:enter-end="opacity-100 scale-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100 scale-100"
+    x-transition:leave-end="opacity-0 scale-95"
     x-cloak>
 
     <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-gray-100" @click.away="showVerifyReturnModal = false">
@@ -10,7 +15,6 @@
         <div class="bg-cyan-600 px-6 py-4 text-white flex justify-between items-center shrink-0">
             <div>
                 <h3 class="font-bold text-base flex items-center gap-2">
-                    <!-- Icon Search Check Light Tint -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-cyan-200 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"/>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -28,14 +32,21 @@
             </button>
         </div>
 
-        <form :action="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/verify-return` : '#'" method="POST" class="p-6 overflow-y-auto space-y-4 text-xs">
+        <form x-ref="verifyReturnFormElement"
+              :action="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/verify-return` : '#'" 
+              method="POST" 
+              @submit.prevent="submitVerifyReturnForm()"
+              class="p-6 overflow-y-auto space-y-4 text-xs flex-1">
             @csrf
             @method('PATCH')
+
+            <!-- INPUT HIDDEN: SNAPSHOT ITEMS CHECKLIST (JSON) & TANDA TANGAN -->
+            <input type="hidden" name="items" :value="JSON.stringify(verifyReturnForm.items)">
+            <input type="hidden" name="signature" x-model="verifyReturnForm.signatureData">
 
             {{-- 1. PRATINJAU BBM & SPEEDOMETER DRIVER --}}
             <div class="bg-cyan-50/60 p-3.5 rounded-xl border border-cyan-200 space-y-2">
                 <span class="text-[10px] font-bold text-cyan-800 uppercase tracking-wider block flex items-center gap-1.5">
-                    <!-- Icon Fuel Gauge Cyan -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-cyan-700 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="3" y1="22" x2="15" y2="22"/>
                         <path d="M4 9h10"/>
@@ -57,7 +68,6 @@
                 <template x-if="selectedBooking?.log?.end_photo">
                     <div class="pt-1.5 border-t border-cyan-200/60">
                         <span class="text-[10px] text-gray-500 font-bold block mb-1 flex items-center gap-1">
-                            <!-- Icon Camera Cyan -->
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-cyan-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
                                 <circle cx="12" cy="13" r="3"/>
@@ -71,11 +81,10 @@
                 </template>
             </div>
 
-            {{-- 2. EDITABLE CHECKLIST OLEH ADMIN LAPANGAN --}}
+            {{-- 2. EDITABLE CHECKLIST DINAMIS OLEH ADMIN LAPANGAN --}}
             <div class="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                 <div class="flex items-center justify-between border-b border-slate-200 pb-1.5">
                     <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wider block flex items-center gap-1.5">
-                        <!-- Icon Checklist Slate -->
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-slate-700 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
                             <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
@@ -86,10 +95,9 @@
                     <span class="text-[10px] bg-cyan-100 text-cyan-800 font-bold px-2 py-0.5 rounded">Admin Mode</span>
                 </div>
 
-                {{-- KONDISI FISIK --}}
+                {{-- DINAMIS KONDISI FISIK --}}
                 <div class="space-y-1">
                     <span class="font-bold text-gray-700 text-[11px] block flex items-center gap-1">
-                        <!-- Icon Car Search Cyan -->
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-cyan-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="11" cy="11" r="8"/>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -97,59 +105,30 @@
                         <span>Kondisi Fisik Kendaraan:</span>
                     </span>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-700">
-                        <label class="flex items-center gap-2 p-2 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
-                            <input type="checkbox" name="body_condition" value="1" x-model="verifyReturnForm.body_condition" class="rounded text-cyan-600 focus:ring-cyan-500">
-                            <span>Bodi & Cat Mulus</span>
-                        </label>
-                        <label class="flex items-center gap-2 p-2 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
-                            <input type="checkbox" name="tires_condition" value="1" x-model="verifyReturnForm.tires_condition" class="rounded text-cyan-600 focus:ring-cyan-500">
-                            <span>Kondisi Ban Baik</span>
-                        </label>
-                        <label class="flex items-center gap-2 p-2 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
-                            <input type="checkbox" name="lights_condition" value="1" x-model="verifyReturnForm.lights_condition" class="rounded text-cyan-600 focus:ring-cyan-500">
-                            <span>Lampu-Lampu Nyala</span>
-                        </label>
-                        <label class="flex items-center gap-2 p-2 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
-                            <input type="checkbox" name="glass_mirrors" value="1" x-model="verifyReturnForm.glass_mirrors" class="rounded text-cyan-600 focus:ring-cyan-500">
-                            <span>Kaca & Spion Utuh</span>
-                        </label>
-                        <label class="flex items-center gap-2 p-2 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
-                            <input type="checkbox" name="brakes_condition" value="1" x-model="verifyReturnForm.brakes_condition" class="rounded text-cyan-600 focus:ring-cyan-500">
-                            <span>Fungsi Rem Normal</span>
-                        </label>
-                        <label class="flex items-center gap-2 p-2 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
-                            <input type="checkbox" name="interior_cleanliness" value="1" x-model="verifyReturnForm.interior_cleanliness" class="rounded text-cyan-600 focus:ring-cyan-500">
-                            <span>Kabin Bersih</span>
-                        </label>
+                        <template x-for="item in verifyReturnForm.items.filter(i => i.category === 'condition')" :key="item.id">
+                            <label class="flex items-center gap-2 p-2 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
+                                <input type="checkbox" x-model="item.is_checked" class="rounded text-cyan-600 focus:ring-cyan-500">
+                                <span x-text="item.name"></span>
+                            </label>
+                        </template>
                     </div>
                 </div>
 
-                {{-- KELENGKAPAN DINAS --}}
+                {{-- DINAMIS KELENGKAPAN DINAS --}}
                 <div class="space-y-1 pt-2 border-t border-slate-200">
                     <span class="font-bold text-gray-700 text-[11px] block flex items-center gap-1">
-                        <!-- Icon Wrench Cyan -->
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-cyan-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                         </svg>
                         <span>Kelengkapan Kendaraan Dinas:</span>
                     </span>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-gray-700">
-                        <label class="flex items-center gap-1.5 p-1.5 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
-                            <input type="checkbox" name="has_stnk" value="1" x-model="verifyReturnForm.has_stnk" class="rounded text-cyan-600 focus:ring-cyan-500">
-                            <span>STNK</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 p-1.5 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
-                            <input type="checkbox" name="has_spare_tire" value="1" x-model="verifyReturnForm.has_spare_tire" class="rounded text-cyan-600 focus:ring-cyan-500">
-                            <span>Ban Serep</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 p-1.5 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
-                            <input type="checkbox" name="has_jack_tools" value="1" x-model="verifyReturnForm.has_jack_tools" class="rounded text-cyan-600 focus:ring-cyan-500">
-                            <span>Dongkrak</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 p-1.5 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
-                            <input type="checkbox" name="has_first_aid" value="1" x-model="verifyReturnForm.has_first_aid" class="rounded text-cyan-600 focus:ring-cyan-500">
-                            <span>Kotak P3K</span>
-                        </label>
+                        <template x-for="item in verifyReturnForm.items.filter(i => i.category === 'completeness')" :key="item.id">
+                            <label class="flex items-center gap-1.5 p-1.5 rounded-lg border bg-white hover:bg-cyan-50/40 cursor-pointer transition">
+                                <input type="checkbox" x-model="item.is_checked" class="rounded text-cyan-600 focus:ring-cyan-500">
+                                <span x-text="item.name"></span>
+                            </label>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -157,7 +136,6 @@
             {{-- SEKSI VERIFIKASI KEBERSIHAN & CUCI MOBIL --}}
             <div class="space-y-2 pt-2 border-t border-slate-200">
                 <span class="font-bold text-gray-700 text-[11px] block flex items-center gap-1">
-                    <!-- Icon Sparkles Amber -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-amber-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
                     </svg>
@@ -174,7 +152,6 @@
                     <template x-if="verifyReturnForm.wash_receipt_photo">
                         <div class="pt-1 border-t border-amber-200/80">
                             <span class="text-[10px] text-amber-800 font-bold block mb-1 flex items-center gap-1">
-                                <!-- Icon Receipt Amber -->
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-amber-700 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/>
                                     <line x1="8" y1="6" x2="16" y2="6"/>
@@ -194,7 +171,6 @@
             {{-- 3. CATATAN TEMUAN PERBEDAAN ADMIN --}}
             <div class="space-y-1.5">
                 <label class="block font-bold text-gray-800 flex items-center gap-1">
-                    <!-- Icon Edit Note Cyan -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-cyan-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -207,13 +183,58 @@
                           class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-cyan-500 focus:border-cyan-500"></textarea>
             </div>
 
+            <!-- SEKSI TANDA TANGAN ADMIN LAPANGAN -->
+            <div class="space-y-1.5 pt-2 border-t border-cyan-100 shrink-0">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <label class="text-xs font-bold text-cyan-950 flex items-center gap-1 leading-snug">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-cyan-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                        </svg>
+                        <span x-text="verifyReturnForm.existingSignatureUrl ? 'Tanda Tangan Verifikasi (Sudah Tersedia)' : 'Tanda Tangan Verifikasi Admin Lapangan'"></span> 
+                        <span class="text-rose-500">*</span>
+                    </label>
+
+                    <button type="button" 
+                            @click="clearVerifyReturnSignature()" 
+                            class="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shrink-0 shadow-2xs cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6h18"/>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                        </svg>
+                        <span>Bersihkan</span>
+                    </button>
+                </div>
+
+                {{-- Preview TTD Lama jika Admin sudah pernah TTD --}}
+                <template x-if="verifyReturnForm.existingSignatureUrl">
+                    <div class="mb-2 p-2 bg-cyan-50/50 border border-cyan-100 rounded-xl flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <img :src="verifyReturnForm.existingSignatureUrl" class="h-10 border bg-white rounded p-1 object-contain">
+                            <span class="text-[11px] font-semibold text-cyan-900">TTD Admin tersimpan. Coret canvas di bawah jika ingin memperbarui TTD.</span>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="border-2 border-dashed border-gray-300 rounded-xl bg-white p-1 relative">
+                    <canvas x-ref="verifyReturnSignatureCanvas" 
+                            style="mix-blend-mode: normal;"
+                            class="w-full h-36 bg-white rounded-lg cursor-pointer touch-none block"></canvas>
+                </div>
+
+                <template x-if="verifyReturnForm.signatureError">
+                    <p class="text-[11px] font-bold text-rose-600 mt-1" x-text="verifyReturnForm.signatureError"></p>
+                </template>
+            </div>
+
+            <!-- TOMBOL AKSI MODAL -->
             <div class="flex items-center gap-3 pt-3 border-t border-gray-100 shrink-0">
                 <button type="button" @click="showVerifyReturnModal = false" class="w-1/2 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-200 transition">
                     Batal
                 </button>
                 
                 <button type="submit" class="w-1/2 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5">
-                    <!-- Icon Save Check -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                         <polyline points="17 21 17 13 7 13 7 21"/>

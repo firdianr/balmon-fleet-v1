@@ -1,7 +1,12 @@
-<!-- MODAL COMPLETE TRIP (POST-TRIP CHECKLIST & CUCI MOBIL) -->
+<!-- MODAL COMPLETE TRIP (POST-TRIP CHECKLIST & CUCI MOBIL DINAMIS) -->
 <div x-show="showCompleteModal" 
-    class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" 
-    x-transition
+    class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 top-0" 
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0 scale-95"
+    x-transition:enter-end="opacity-100 scale-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100 scale-100"
+    x-transition:leave-end="opacity-0 scale-95"
     x-cloak>
     
     <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-gray-100" @click.away="showCompleteModal = false">
@@ -9,7 +14,6 @@
         <!-- HEADER MODAL PURPLE -->
         <div class="bg-purple-600 px-6 py-4 text-white flex justify-between items-center shrink-0">
             <h3 class="font-bold text-base flex items-center gap-2">
-                <!-- Icon Flag Finish Purple Light Tint -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-purple-200 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/>
                 </svg>
@@ -23,15 +27,70 @@
             </button>
         </div>
 
-        <form :action="`/bookings/${completeTripForm.letter_slug}/complete-trip`" method="POST" enctype="multipart/form-data" class="p-6 overflow-y-auto space-y-4 text-xs">
+        <form x-ref="completeTripFormElement"
+              :action="`/bookings/${completeTripForm.letter_slug}/complete-trip`" 
+              method="POST" 
+              enctype="multipart/form-data" 
+              @submit.prevent="submitCompleteTripForm()"
+              class="p-6 overflow-y-auto space-y-1 text-xs flex-1">
             @csrf
             @method('PATCH')
+
+            <!-- INPUT HIDDEN: SNAPSHOT ITEMS CHECKLIST, TANDA TANGAN & HAS INCIDENT -->
+            <input type="hidden" name="items" :value="JSON.stringify(completeTripForm.items)">
+            <input type="hidden" name="signature" x-model="completeTripForm.signatureData">
+            <input type="hidden" name="has_incident" :value="completeTripForm.hasIncident ? 'true' : 'false'">
+
+            {{-- DOKUMEN SURAT TUGAS SUSULAN (KHUSUS PEMINJAMAN NOTA DINAS) --}}
+            <template x-if="selectedBooking?.letter_type === 'nota_dinas'">
+                <div class="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3">
+                    <div class="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                        <span>Kelengkapan Surat Tugas (Pengembalian Nota Dinas)</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <label class="block font-bold text-gray-700 text-xs">
+                                Nomor Surat Tugas <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" 
+                                name="return_letter_number" 
+                                x-model="completeTripForm.return_letter_number"
+                                :required="selectedBooking?.letter_type === 'nota_dinas'"
+                                placeholder="Contoh: 510/Balmon.33/KP.01.06/09/2026"
+                                class="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs font-medium focus:ring-amber-500 focus:border-amber-500">
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="block font-bold text-gray-700 text-xs">
+                                File Surat Tugas (PDF) <span class="text-rose-500">*</span>
+                            </label>
+                            
+                            <input type="file" 
+                                name="return_letter_file" 
+                                accept="application/pdf"
+                                :required="selectedBooking?.letter_type === 'nota_dinas'"
+                                class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200 transition cursor-pointer">
+                            
+                            <p class="text-[11px] text-gray-400">
+                                * Format: PDF saja (Maksimal 5 MB)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </template>
 
             {{-- INDIKATOR BBM & FOTO PENGEMBALIAN --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-purple-50/50 rounded-xl border border-purple-100">
                 <div class="space-y-1">
                     <label class="font-bold text-purple-950 flex items-center gap-1.5">
-                        <!-- Icon Fuel Pump Purple -->
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-purple-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="3" y1="22" x2="15" y2="22"/>
                             <path d="M4 9h10"/>
@@ -49,17 +108,40 @@
                     </select>
                 </div>
 
-                <div class="space-y-1">
+                <div class="space-y-2" x-data="{ endPhotoPreview: null }">
                     <label class="font-bold text-purple-950 flex items-center gap-1.5">
-                        <!-- Icon Camera Purple -->
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-purple-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
                             <circle cx="12" cy="13" r="3"/>
                         </svg>
                         <span>Foto BBM Pengembalian</span> <span class="text-rose-500">*</span>
                     </label>
-                    <input type="file" name="end_photo" accept="image/*" required
+                    
+                    <input type="file" name="end_photo" accept="image/jpeg,image/png,image/jpg,image/webp" required
+                        @change="
+                            const file = $event.target.files[0];
+                            if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (e) => { endPhotoPreview = e.target.result; };
+                                reader.readAsDataURL(file);
+                            }
+                        "
                         class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-purple-100 file:text-purple-800 hover:file:bg-purple-200 transition cursor-pointer">
+                    
+                    <p class="text-[11px] text-gray-400">
+                        * Format: JPG, PNG, WEBP (Maksimal 2 MB)
+                    </p>
+
+                    <div x-show="endPhotoPreview" class="mt-2 relative w-32 h-32 rounded-lg overflow-hidden border border-purple-200 shadow-sm">
+                        <img :src="endPhotoPreview" alt="Preview Foto BBM Pengembalian" class="w-full h-full object-cover">
+                        <button type="button" @click="endPhotoPreview = null; $el.closest('.space-y-2').querySelector('input[type=file]').value = ''" 
+                            class="absolute top-1 right-1 bg-rose-500 text-white rounded-full p-1 hover:bg-rose-600 transition shadow">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -71,7 +153,6 @@
                             <input type="checkbox" name="is_washed" value="1" required x-model="completeTripForm.is_washed"
                                    class="rounded border-amber-400 text-amber-600 focus:ring-amber-500">
                             <span class="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                                <!-- Icon Sparkles Amber -->
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
                                 </svg>
@@ -90,70 +171,46 @@
                 </div>
             </template>
 
-            {{-- SEKSI 1: CHECKLIST FISIK PENGEMBALIAN --}}
+            {{-- SEKSI 1: DINAMIS CHECKLIST FISIK PENGEMBALIAN --}}
             <div class="space-y-2">
                 <h4 class="font-bold text-purple-900 text-xs border-b border-purple-100 pb-1 flex items-center gap-1.5">
-                    <!-- Icon Search Purple -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-purple-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"/>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                     </svg>
-                    <span>Checklist Fisik Kepulangan (Centang jika kondisi baik)</span>
+                    <span>Checklist Kondisi Fisik Armada (Centang jika kondisi baik)</span>
                 </h4>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-700">
-                    <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
-                        <input type="checkbox" name="body_condition" value="1" x-model="completeTripForm.body_condition" @change="checkCompleteIncidentStatus()" class="rounded text-purple-600 focus:ring-purple-500">
-                        <span>Bodi & Cat Mulus</span>
-                    </label>
-                    <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
-                        <input type="checkbox" name="tires_condition" value="1" x-model="completeTripForm.tires_condition" @change="checkCompleteIncidentStatus()" class="rounded text-purple-600 focus:ring-purple-500">
-                        <span>Kondisi Ban Baik</span>
-                    </label>
-                    <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
-                        <input type="checkbox" name="lights_condition" value="1" x-model="completeTripForm.lights_condition" @change="checkCompleteIncidentStatus()" class="rounded text-purple-600 focus:ring-purple-500">
-                        <span>Lampu-Lampu Nyala</span>
-                    </label>
-                    <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
-                        <input type="checkbox" name="glass_mirrors" value="1" x-model="completeTripForm.glass_mirrors" @change="checkCompleteIncidentStatus()" class="rounded text-purple-600 focus:ring-purple-500">
-                        <span>Kaca & Spion Utuh</span>
-                    </label>
-                    <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
-                        <input type="checkbox" name="brakes_condition" value="1" x-model="completeTripForm.brakes_condition" @change="checkCompleteIncidentStatus()" class="rounded text-purple-600 focus:ring-purple-500">
-                        <span>Fungsi Rem Normal</span>
-                    </label>
-                    <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
-                        <input type="checkbox" name="interior_cleanliness" value="1" x-model="completeTripForm.interior_cleanliness" @change="checkCompleteIncidentStatus()" class="rounded text-purple-600 focus:ring-purple-500">
-                        <span>Kabin Bersih</span>
-                    </label>
+                    <template x-for="item in completeTripForm.items.filter(i => i.category === 'condition')" :key="item.id">
+                        <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
+                            <input type="checkbox" 
+                                x-model="item.is_checked" 
+                                @change="checkDynamicIncidentStatus(completeTripForm)" 
+                                class="rounded text-purple-600 focus:ring-purple-500">
+                            <span x-text="item.name"></span>
+                        </label>
+                    </template>
                 </div>
             </div>
 
-            {{-- SEKSI 2: PERLENGKAPAN DINAS PENGEMBALIAN --}}
+            {{-- SEKSI 2: DINAMIS PERLENGKAPAN DINAS PENGEMBALIAN --}}
             <div class="space-y-2">
                 <h4 class="font-bold text-purple-900 text-xs border-b border-purple-100 pb-1 flex items-center gap-1.5">
-                    <!-- Icon Tools Purple -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-purple-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                     </svg>
                     <span>Kelengkapan Kendaraan Dinas (Centang jika ada)</span>
                 </h4>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-gray-700">
-                    <label class="flex items-center gap-1.5 p-1.5 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
-                        <input type="checkbox" name="has_stnk" value="1" x-model="completeTripForm.has_stnk" @change="checkCompleteIncidentStatus()" class="rounded text-purple-600 focus:ring-purple-500">
-                        <span>STNK</span>
-                    </label>
-                    <label class="flex items-center gap-1.5 p-1.5 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
-                        <input type="checkbox" name="has_spare_tire" value="1" x-model="completeTripForm.has_spare_tire" @change="checkCompleteIncidentStatus()" class="rounded text-purple-600 focus:ring-purple-500">
-                        <span>Ban Serep</span>
-                    </label>
-                    <label class="flex items-center gap-1.5 p-1.5 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
-                        <input type="checkbox" name="has_jack_tools" value="1" x-model="completeTripForm.has_jack_tools" @change="checkCompleteIncidentStatus()" class="rounded text-purple-600 focus:ring-purple-500">
-                        <span>Dongkrak</span>
-                    </label>
-                    <label class="flex items-center gap-1.5 p-1.5 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
-                        <input type="checkbox" name="has_first_aid" value="1" x-model="completeTripForm.has_first_aid" @change="checkCompleteIncidentStatus()" class="rounded text-purple-600 focus:ring-purple-500">
-                        <span>Kotak P3K</span>
-                    </label>
+                    <template x-for="item in completeTripForm.items.filter(i => i.category === 'completeness')" :key="item.id">
+                        <label class="flex items-center gap-1.5 p-1.5 rounded-lg border border-gray-100 hover:bg-purple-50/50 cursor-pointer transition">
+                            <input type="checkbox" 
+                                x-model="item.is_checked" 
+                                @change="checkDynamicIncidentStatus(completeTripForm)" 
+                                class="rounded text-purple-600 focus:ring-purple-500">
+                            <span x-text="item.name"></span>
+                        </label>
+                    </template>
                 </div>
             </div>
 
@@ -161,7 +218,6 @@
             <div class="pt-2 border-t border-gray-100 space-y-3">
                 <div x-show="completeTripForm.hasIncident" x-transition class="space-y-3 bg-rose-50/70 p-3.5 rounded-xl border border-rose-200">
                     <div class="flex items-center gap-1.5 text-rose-800 font-bold text-xs">
-                        <!-- Icon Alert Rose -->
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-rose-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                             <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
                             <line x1="12" y1="9" x2="12" y2="13"/>
@@ -180,23 +236,87 @@
                                 class="w-full px-3 py-2 bg-white border border-rose-300 rounded-xl text-xs font-medium focus:ring-rose-500 focus:border-rose-500"></textarea>
                     </div>
 
-                    <div class="space-y-1">
+                    <!-- DENGAN COMPONENT ALPINE PHOTO MANAGER PERBAIKAN -->
+                    <div class="space-y-2" x-data="completeTripPhotoManager()">
                         <label class="block font-bold text-rose-900">
                             Foto Bukti Kerusakan / Insiden <span class="text-rose-600">*</span>
                         </label>
-                        <input type="file" name="condition_photos[]" accept="image/*" multiple
-                            :required="completeTripForm.hasIncident"
+                        
+                        <input type="file" 
+                            id="complete_condition_photos_input"
+                            name="condition_photos[]" 
+                            accept="image/jpeg,image/png,image/jpg,image/webp" 
+                            multiple
+                            :required="completeTripForm.hasIncident && photos.length === 0"
+                            @change="handleFileChange($event)"
                             class="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-rose-100 file:text-rose-700 hover:file:bg-rose-200 transition cursor-pointer">
+
+                        <p class="text-[11px] text-rose-700/70">
+                            * Format: JPG, JPEG, PNG, WEBP (Maksimal 2 MB per foto, max 5 foto)
+                        </p>
+
+                        <template x-if="photos.length > 0">
+                            <div class="grid grid-cols-3 sm:grid-cols-4 gap-2.5 pt-2">
+                                <template x-for="(photo, index) in photos" :key="index">
+                                    <div class="relative group aspect-square rounded-xl overflow-hidden border border-rose-200 shadow-sm bg-gray-50">
+                                        <img :src="photo.url" alt="Preview insiden" class="w-full h-full object-cover">
+                                        
+                                        <button type="button" @click="removePhoto(index)" 
+                                            class="absolute top-1 right-1 bg-rose-600/90 text-white rounded-full p-1 hover:bg-rose-700 transition shadow-md">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </div>
 
+            <!-- SEKSI TANDA TANGAN PEMOHON / DRIVER -->
+            <div class="space-y-1.5 pt-2 border-t border-purple-100 shrink-0">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <label class="text-xs font-bold text-purple-950 flex items-center gap-1 leading-snug">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-purple-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                        </svg>
+                        <span>Tanda Tangan Pengesahan Pengembalian (Formulir & BAST)</span> 
+                        <span class="text-rose-500">*</span>
+                    </label>
+
+                    <button type="button" 
+                            @click="clearCompleteSignature()" 
+                            class="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shrink-0 shadow-2xs cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6h18"/>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                        </svg>
+                        <span>Bersihkan</span>
+                    </button>
+                </div>
+
+                <div class="border-2 border-dashed border-gray-300 rounded-xl bg-white p-1 relative">
+                    <canvas x-ref="completeSignatureCanvas" 
+                            style="mix-blend-mode: normal;"
+                            class="w-full h-36 bg-white rounded-lg cursor-pointer touch-none block"></canvas>
+                </div>
+
+                <template x-if="completeTripForm.signatureError">
+                    <p class="text-[11px] font-bold text-rose-600 mt-1" x-text="completeTripForm.signatureError"></p>
+                </template>
+            </div>
+
+            <!-- TOMBOL AKSI MODAL -->
             <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2 shrink-0">
                 <button type="button" @click="showCompleteModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">
                     Batal
                 </button>
                 <button type="submit" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-xs transition flex items-center gap-1.5">
-                    <!-- Check Circle White Icon -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                         <polyline points="22 4 12 14.01 9 11.01"/>
@@ -208,3 +328,49 @@
 
     </div>
 </div>
+
+<script>
+    function completeTripPhotoManager() {
+        return {
+            photos: [],
+            maxFiles: 5,
+            handleFileChange(event) {
+                const files = Array.from(event.target.files);
+                const remainingSlots = this.maxFiles - this.photos.length;
+                
+                if (files.length > remainingSlots) {
+                    alert(`Maksimal hanya dapat mengunggah ${this.maxFiles} foto.`);
+                }
+
+                const selectedFiles = files.slice(0, remainingSlots);
+
+                selectedFiles.forEach(file => {
+                    if (file.type.startsWith('image/')) {
+                        this.photos.push({
+                            file: file,
+                            url: URL.createObjectURL(file)
+                        });
+                    }
+                });
+
+                this.syncFileInput();
+            },
+            removePhoto(index) {
+                URL.revokeObjectURL(this.photos[index].url);
+                this.photos.splice(index, 1);
+                this.syncFileInput();
+            },
+            syncFileInput() {
+                const input = document.getElementById('complete_condition_photos_input');
+                if (!input) return;
+
+                const dataTransfer = new DataTransfer();
+                this.photos.forEach(item => {
+                    dataTransfer.items.add(item.file);
+                });
+                
+                input.files = dataTransfer.files;
+            }
+        }
+    }
+</script>

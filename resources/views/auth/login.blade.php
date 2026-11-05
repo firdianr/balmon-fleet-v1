@@ -4,10 +4,12 @@
         <div class="grid grid-cols-1 md:grid-cols-2">
 
             {{-- CARD KIRI: INFORMASI SISTEM (BALMON FLEET) --}}
-            <div class="bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-800 p-8 sm:p-10 text-white flex flex-col justify-between relative overflow-hidden">
+            {{-- CARD KIRI: INFORMASI SISTEM (BALMON FLEET) --}}
+            <div class="bg-blue-600 p-8 sm:p-10 text-white flex flex-col justify-between relative overflow-hidden">
                 {{-- Elemen Dekorasi Latar Belakang --}}
-                <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
-                <div class="absolute -left-10 -top-10 w-40 h-40 bg-blue-400/20 rounded-full blur-xl pointer-events-none"></div>
+                <div class="absolute -right-12 -bottom-12 w-60 h-60 bg-white/15 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -left-10 -top-10 w-48 h-48 bg-sky-300/20 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="absolute top-1/2 left-1/3 -translate-y-1/2 w-40 h-40 bg-blue-400/25 rounded-full blur-2xl pointer-events-none"></div>
 
                 <div class="relative z-10">
                     {{-- Logo Balmon --}}
@@ -99,6 +101,7 @@
                         <!-- Tombol Toggle Show/Hide Password -->
                         <button type="button" 
                                 @click="showPassword = !showPassword" 
+                                aria-label="Tampilkan atau sembunyikan kata sandi"
                                 class="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 focus:outline-none p-1 transition-colors">
                             <!-- Icon Mata Terbuka (Password Terlihat) -->
                             <svg x-show="showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" x-cloak>

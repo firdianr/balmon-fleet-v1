@@ -30,12 +30,17 @@
             {{-- HEADER MOBILE SIDEBAR --}}
             <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5">
-                    <img src="{{ asset('images/logo-komdigi.png') }}" alt="Logo Balmon" class="h-8 w-auto object-contain">
+                    <img src="{{ asset('images/logo-komdigi.png') }}" 
+                        alt="Logo Balmon" 
+                        width="140" 
+                        height="40" 
+                        decoding="async"
+                        class="h-8 w-auto object-contain">
                     <span class="font-bold text-base text-gray-800 tracking-wide">
                         BALMON <span class="text-indigo-600">FLEET</span>
                     </span>
                 </a>
-                <button type="button" @click="mobileSidebarOpen = false" class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                <button type="button" @click="mobileSidebarOpen = false" class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100" aria-label="Tutup Menu Sidebar">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -95,19 +100,28 @@
 
                 {{-- MASTER DATA --}}
                 <div class="space-y-1">
-                    <span class="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Master Data</span>
-
                     @can('manage-vehicles')
+                        <span class="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Master Data</span>
                         <a href="{{ route('admin_app.vehicles.index') }}" 
-                           class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('admin_app.vehicles.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+                        class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('admin_app.vehicles.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
                             <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A2 2 0 0 0 2 12v4c0 .6.4 1 1 1h2m14 0a2 2 0 11-4 0 2 2 0 014 0zM7 17a2 2 0 11-4 0 2 2 0 014 0z"/>
                             </svg>
                             <span>Kelola Armada</span>
                         </a>
+
+                        <!-- MENU BARU: KELOLA MASTER CHECKLIST -->
+                        <a href="{{ route('master-checklists.index') }}" 
+                        class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('master-checklists.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+                            <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                            </svg>
+                            <span>Kelola Master Checklist</span>
+                        </a>
                     @else
+                        <span class="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Katalog</span>
                         <a href="{{ route('vehicles.index') }}" 
-                           class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('vehicles.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+                        class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('vehicles.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
                             <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A2 2 0 0 0 2 12v4c0 .6.4 1 1 1h2m14 0a2 2 0 11-4 0 2 2 0 014 0zM7 17a2 2 0 11-4 0 2 2 0 014 0z"/>
                             </svg>
@@ -117,7 +131,7 @@
 
                     @if(auth()->user()->isAdminApp())
                         <a href="{{ route('admin_app.users.index') }}" 
-                           class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('admin_app.users.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+                        class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('admin_app.users.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
                             <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
                             </svg>
@@ -159,7 +173,12 @@
             {{-- HEADER LOGO DESKTOP --}}
             <div class="px-6 h-16 border-b border-gray-100 flex items-center">
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5">
-                    <img src="{{ asset('images/logo-komdigi.png') }}" alt="Logo Balmon" class="h-8 w-auto object-contain">
+                    <img src="{{ asset('images/logo-komdigi.png') }}" 
+                        alt="Logo Balmon" 
+                        width="140" 
+                        height="40" 
+                        decoding="async"
+                        class="h-8 w-auto object-contain">
                     <span class="font-bold text-lg text-gray-800 tracking-wide">
                         BALMON <span class="text-indigo-600">FLEET</span>
                     </span>
@@ -170,7 +189,7 @@
             <div class="px-3 py-5 space-y-6 flex-1">
                 {{-- SECTION OPERASIONAL --}}
                 <div class="space-y-1">
-                    <span class="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Operasional</span>
+                    <span class="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-2">Operasional</span>
 
                     <a href="{{ route('dashboard') }}" 
                        class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('dashboard') ? 'bg-indigo-50 text-indigo-700 shadow-2xs' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
@@ -199,7 +218,7 @@
 
                 {{-- SECTION ACCORDION JADWAL --}}
                 <div class="space-y-1">
-                    <span class="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Penjadwalan</span>
+                    <span class="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-2">Penjadwalan</span>
 
                     <button type="button" 
                             @click="calendarOpen = !calendarOpen" 
@@ -215,7 +234,7 @@
                         </svg>
                     </button>
 
-                    <div x-show="calendarOpen" x-collapse class="pl-7 space-y-1 pt-1">
+                    <div x-show="calendarOpen" x-transition class="pl-7 space-y-1 pt-1">
                         <a href="{{ route('calendar.index') }}" 
                            class="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg transition {{ request()->routeIs('calendar.index') ? 'text-indigo-700 font-bold bg-indigo-50' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
                             <span class="w-1.5 h-1.5 rounded-full {{ request()->routeIs('calendar.index') ? 'bg-indigo-600' : 'bg-gray-300' }}"></span>
@@ -231,19 +250,28 @@
 
                 {{-- SECTION MASTER DATA --}}
                 <div class="space-y-1">
-                    <span class="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Master Data</span>
-
                     @can('manage-vehicles')
+                        <span class="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-2">Master Data</span>
                         <a href="{{ route('admin_app.vehicles.index') }}" 
-                           class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('admin_app.vehicles.*') ? 'bg-indigo-50 text-indigo-700 shadow-2xs' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+                        class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('admin_app.vehicles.*') ? 'bg-indigo-50 text-indigo-700 shadow-2xs' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
                             <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A2 2 0 0 0 2 12v4c0 .6.4 1 1 1h2m14 0a2 2 0 11-4 0 2 2 0 014 0zM7 17a2 2 0 11-4 0 2 2 0 014 0z"/>
                             </svg>
                             <span>Kelola Armada</span>
                         </a>
+
+                        <!-- MENU BARU: KELOLA MASTER CHECKLIST -->
+                        <a href="{{ route('master-checklists.index') }}" 
+                        class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('master-checklists.*') ? 'bg-indigo-50 text-indigo-700 shadow-2xs' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+                            <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                            </svg>
+                            <span>Kelola Master Checklist</span>
+                        </a>
                     @else
+                        <span class="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-2">Katalog</span>
                         <a href="{{ route('vehicles.index') }}" 
-                           class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('vehicles.*') ? 'bg-indigo-50 text-indigo-700 shadow-2xs' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+                        class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('vehicles.*') ? 'bg-indigo-50 text-indigo-700 shadow-2xs' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
                             <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A2 2 0 0 0 2 12v4c0 .6.4 1 1 1h2m14 0a2 2 0 11-4 0 2 2 0 014 0zM7 17a2 2 0 11-4 0 2 2 0 014 0z"/>
                             </svg>
@@ -253,7 +281,7 @@
 
                     @if(auth()->user()->isAdminApp())
                         <a href="{{ route('admin_app.users.index') }}" 
-                           class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('admin_app.users.*') ? 'bg-indigo-50 text-indigo-700 shadow-2xs' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+                        class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition {{ request()->routeIs('admin_app.users.*') ? 'bg-indigo-50 text-indigo-700 shadow-2xs' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
                             <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
                             </svg>
@@ -294,7 +322,7 @@
         <div class="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <!-- Mobile Toggle & Brand -->
             <div class="flex items-center gap-3 sm:hidden">
-                <button type="button" @click="mobileSidebarOpen = true" class="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition">
+                <button type="button" @click="mobileSidebarOpen = true" class="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition" aria-label="Buka Menu Navigasi">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                     </svg>

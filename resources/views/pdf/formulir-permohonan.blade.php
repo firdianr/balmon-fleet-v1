@@ -125,6 +125,10 @@
         Apabila selama masa peminjaman terjadi kerusakan dan/atau kehilangan serta hal lain yang ditimbulkan, maka saya bertanggung jawab sepenuhnya sesuai ketentuan.
     </p>
 
+    @php
+        $pemohonSignature = $booking->getSignature('formulir_peminjaman', 'pemohon');
+    @endphp
+
     <table class="ttd-table">
         <tr>
             <td></td>
@@ -132,7 +136,14 @@
         </tr>
         <tr>
             <td></td>
-            <td style="height: 75px;"></td>
+            <td style="height: 75px; vertical-align: middle;">
+                @if($pemohonSignature && $pemohonSignature->signature_path && file_exists(public_path('storage/' . $pemohonSignature->signature_path)))
+                    <img src="{{ public_path('storage/' . $pemohonSignature->signature_path) }}" 
+                        style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
+                @else
+                    <div style="height: 70px;"></div>
+                @endif
+            </td>
         </tr>
         <tr>
             <td></td>

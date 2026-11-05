@@ -28,12 +28,10 @@ return new class extends Migration
             $table->string('end_fuel_level', 20)->nullable(); // Sisa BBM saat Check-In
             $table->string('end_photo')->nullable();
             $table->integer('distance_traveled')->nullable();
-            $table->text('condition_notes')->nullable();
+            $table->json('condition_notes')->nullable();
             $table->json('condition_photos')->nullable();
-            $table->boolean('is_verified_by_admin')->default(false)->after('condition_photos')->comment('Status verifikasi fisik oleh Admin Lapangan');
-            $table->text('admin_verification_notes')->nullable()->after('is_verified_by_admin')->comment('Catatan perbedaan temuan Admin Lapangan jika ada');
-            
-
+            $table->boolean('is_verified_by_admin')->default(false);
+            $table->text('admin_verification_notes')->nullable();
             $table->timestamps();
         });
     }

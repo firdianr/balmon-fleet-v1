@@ -18,6 +18,7 @@ class UpdateBookingRequest extends FormRequest
         $booking = $this->route('booking');
 
         return [
+            'letter_type'   => ['required', 'in:surat_tugas,nota_dinas'],
             'letter_number' => [
                 'required',
                 'string',

@@ -12,7 +12,8 @@ class PdfController extends Controller
      */
     public function printFormulirPermohonan(Booking $booking)
     {
-        $booking->load(['user', 'vehicle', 'driver']);
+        // Load relasi user, vehicle, driver, dan signatures
+        $booking->load(['user', 'vehicle', 'driver', 'signatures.user']);
 
         $pdf = Pdf::loadView('pdf.formulir-permohonan', compact('booking'))
             ->setPaper('a4', 'portrait');
@@ -29,7 +30,8 @@ class PdfController extends Controller
             abort(403, 'BAST Peminjaman belum dapat dicetak pada status saat ini.');
         }
 
-        $booking->load(['user', 'vehicle', 'driver', 'allocator', 'approver']);
+        // Load relasi allocator, approver, serta signatures
+        $booking->load(['user', 'vehicle', 'driver', 'allocator', 'approver', 'signatures.user', 'startChecklist']);
 
         $pdf = Pdf::loadView('pdf.bast-peminjaman', compact('booking'))
             ->setPaper('a4', 'portrait');
@@ -46,7 +48,8 @@ class PdfController extends Controller
             abort(403, 'Formulir Pengembalian hanya dapat dicetak setelah kendaraan dikembalikan.');
         }
 
-        $booking->load(['user', 'vehicle', 'driver', 'log']);
+        // Load relasi utama beserta TTD
+        $booking->load(['user', 'vehicle', 'driver', 'log', 'signatures.user']);
 
         $pdf = Pdf::loadView('pdf.formulir-pengembalian', compact('booking'))
             ->setPaper('a4', 'portrait');
@@ -63,7 +66,8 @@ class PdfController extends Controller
             abort(403, 'BAST Pengembalian hanya dapat dicetak setelah kendaraan dikembalikan.');
         }
 
-        $booking->load(['user', 'vehicle', 'driver', 'log', 'returnChecker', 'returnApprover']);
+        // Load relasi pemeriksaan, persetujuan pengembalian, serta TTD
+        $booking->load(['user', 'vehicle', 'driver', 'log', 'returnChecker', 'returnApprover', 'signatures.user', 'endChecklist']);
 
         $pdf = Pdf::loadView('pdf.bast-pengembalian', compact('booking'))
             ->setPaper('a4', 'portrait');

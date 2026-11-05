@@ -29,6 +29,7 @@ class VehicleLog extends Model
     ];
 
     protected $casts = [
+        'condition_notes'  => 'array',
         'condition_photos' => 'array',
     ];
 

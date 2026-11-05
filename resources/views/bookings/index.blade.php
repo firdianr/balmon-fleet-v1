@@ -5,6 +5,10 @@
             {{ __('Daftar Peminjaman Kendaraan') }}
         </h2>
     </x-slot>
+    <script>
+        // Simpan data master checklist ke window global agar tidak merusak atribut x-data HTML
+        window.masterChecklistsData = {!! json_encode($masterChecklists ?? []) !!};
+    </script>
 
     <div class="pt-2 pb-6" 
         x-data="{ 
@@ -23,7 +27,11 @@
                 action: 'approve',
                 vehicle_id: '',
                 driver_id: '',
-                admin_note: ''
+                admin_note: '',
+                signaturePad: null,
+                signatureData: '',
+                signatureError: '',
+                existingSignatureUrl: null
             },
 
             // HELPER: Hak Akses Operasional Perjalanan
@@ -90,27 +98,143 @@
                 };
             },
 
+            masterChecklists: window.masterChecklistsData || [],
+
+            // Helper Generate Snapshot Items Awal
+            getInitialChecklistItems() {
+                if (!Array.isArray(this.masterChecklists) || this.masterChecklists.length === 0) {
+                    return [];
+                }
+                return this.masterChecklists.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    category: item.category,
+                    is_checked: false // Driver wajib mencentang secara manual
+                }));
+            },
+
+            checkDynamicIncidentStatus(formState) {
+                const items = formState.items || [];
+                
+                // Mengecek apakah ada item 'condition' ATAU 'completeness' yang belum/tidak dicentang
+                const hasUncheckedItem = items.some(
+                    item => ['condition', 'completeness'].includes(item.category) && !item.is_checked
+                );
+                
+                formState.hasIncident = hasUncheckedItem;
+            },
+
             openReviewModal(booking) {
                 this.selectedBooking = booking;
+
+                // 1. Logika Lama: Mapping Anggota Tim Permohonan ke Driver Options
                 if (booking.participants && Array.isArray(booking.participants)) {
-                    this.selectedBooking.participants_users = this.drivers.filter(d => 
+                    this.selectedBooking.participants_users = (this.drivers || []).filter(d => 
                         booking.participants.includes(d.id) || booking.participants.includes(String(d.id))
                     );
                 } else {
                     this.selectedBooking.participants_users = [];
                 }
+
+                // 2. Reset & Set State Form Review
                 this.reviewForm.action = 'approve';
-                this.reviewForm.vehicle_id = booking.vehicle_id || '';
-                this.reviewForm.driver_id = booking.driver_id || '';
+                this.reviewForm.vehicle_id = booking.vehicle_id ? String(booking.vehicle_id) : '';
+                this.reviewForm.driver_id = booking.driver_id ? String(booking.driver_id) : '';
                 this.reviewForm.admin_note = booking.admin_note || '';
+                this.reviewForm.signatureError = '';
+                this.reviewForm.signatureData = '';
+
+                // 3. Cek TTD Lama Admin Lapangan (Untuk Penanganan Re-Assign)
+                const adminSignature = (booking.signatures || []).find(s => 
+                    s.signer_role === 'admin_lap' && s.document_type === 'bast_peminjaman'
+                );
+                
+                if (adminSignature && adminSignature.signature_path) {
+                    this.reviewForm.existingSignatureUrl = `/storage/${adminSignature.signature_path}`;
+                } else {
+                    this.reviewForm.existingSignatureUrl = null;
+                }
+
+                // 4. Buka Modal & Inisialisasi Canvas TTD
                 this.showReviewModal = true;
+                this.initReviewSignaturePad();
+            },
+
+            initReviewSignaturePad() {
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        const canvas = this.$refs.reviewSignatureCanvas;
+                        if (!canvas) return;
+
+                        const width = canvas.offsetWidth || canvas.parentElement.clientWidth || 400;
+                        const height = 144; // h-36
+
+                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                        canvas.width = width * ratio;
+                        canvas.height = height * ratio;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(ratio, ratio);
+
+                        const SignaturePadClass = window.SignaturePad || SignaturePad;
+
+                        if (!this.reviewForm.signaturePad) {
+                            this.reviewForm.signaturePad = new SignaturePadClass(canvas, {
+                                backgroundColor: 'rgb(255, 255, 255)',
+                                penColor: 'rgb(0, 0, 128)',
+                                minWidth: 1.5,
+                                maxWidth: 3.5
+                            });
+                        } else {
+                            this.reviewForm.signaturePad.clear();
+                        }
+                    }, 150);
+                });
+            },
+
+            clearReviewSignature() {
+                if (this.reviewForm.signaturePad) {
+                    this.reviewForm.signaturePad.clear();
+                    this.reviewForm.signatureError = '';
+                    this.reviewForm.signatureData = '';
+                }
+            },
+
+            submitReviewForm() {
+                if (this.reviewForm.action === 'approve') {
+                    const isCanvasEmpty = !this.reviewForm.signaturePad || this.reviewForm.signaturePad.isEmpty();
+                    
+                    // Jika tidak ada TTD lama DAN canvas kosong -> Tampilkan Error
+                    if (!this.reviewForm.existingSignatureUrl && isCanvasEmpty) {
+                        this.reviewForm.signatureError = 'Tanda tangan Admin Lapangan wajib dibubuhkan untuk menyetujui!';
+                        return;
+                    }
+
+                    // Jika canvas terisi (baik permohonan baru maupun overwrite saat re-assign)
+                    if (!isCanvasEmpty) {
+                        this.reviewForm.signatureData = this.reviewForm.signaturePad.toDataURL('image/png');
+                    }
+                    
+                    this.reviewForm.signatureError = '';
+                } else {
+                    this.reviewForm.signatureError = '';
+                    this.reviewForm.signatureData = '';
+                }
+
+                this.$nextTick(() => {
+                    this.$refs.reviewFormElement.submit();
+                });
             },
 
             showApproverModal: false,
             approverActionType: '', 
             approverForm: {
                 action: 'approve',
-                admin_note: ''
+                admin_note: '',
+                signaturePad: null,
+                signatureData: '',
+                signatureError: '',
+                existingSignatureUrl: null
             },
 
             openApproverModal(booking, type) {
@@ -118,61 +242,129 @@
                 this.approverActionType = type;
                 this.approverForm.action = 'approve';
                 this.approverForm.admin_note = '';
+                this.approverForm.signatureError = '';
+                this.approverForm.signatureData = '';
+
+                const activeLogId = booking.log?.id;
+                const allChecklists = booking.checklists || [];
 
                 if (type === 'waiting') {
                     const vehicleChecklists = booking.vehicle?.checklists || [];
-                    const endChecklists = vehicleChecklists.filter(c => c.type === 'end');
-                    const lastEndChecklist = endChecklists.length > 0 ? endChecklists[endChecklists.length - 1] : null;
-                    const fallbackChecklist = vehicleChecklists.length > 0 ? vehicleChecklists[vehicleChecklists.length - 1] : null;
+                    const lastEndChecklist = vehicleChecklists.filter(c => c.type === 'end').slice(-1)[0];
+                    const fallbackChecklist = vehicleChecklists.slice(-1)[0];
 
                     this.selectedBooking.displayChecklists = lastEndChecklist 
                         ? [lastEndChecklist] 
                         : (fallbackChecklist ? [fallbackChecklist] : []);
                 } else {
-                    this.selectedBooking.displayChecklists = booking.checklists || [];
+                    const startChecklist = allChecklists.find(c => c.type === 'start' && c.vehicle_log_id === activeLogId) 
+                        || allChecklists.filter(c => c.type === 'start').slice(-1)[0];
+                        
+                    const endChecklist = allChecklists.find(c => c.type === 'end' && c.vehicle_log_id === activeLogId) 
+                        || allChecklists.filter(c => c.type === 'end').slice(-1)[0];
+
+                    const displayList = [];
+                    if (startChecklist) displayList.push(startChecklist);
+                    if (endChecklist) displayList.push(endChecklist);
+
+                    this.selectedBooking.displayChecklists = displayList;
                 }
 
+                // Extract Teks Catatan
+                const condNotes = booking.log?.condition_notes || {};
+                this.selectedBooking.startNotes = typeof condNotes === 'object' ? condNotes.start : null;
+                this.selectedBooking.endNotes   = typeof condNotes === 'object' ? condNotes.end : null;
+
+                // Extract Foto Insiden
+                this.selectedBooking.parsedStartPhotos = [];
+                this.selectedBooking.parsedEndPhotos   = [];
+
+                if (booking.log && booking.log.condition_photos) {
+                    let rawPhotos = booking.log.condition_photos;
+                    if (typeof rawPhotos === 'string') {
+                        try { rawPhotos = JSON.parse(rawPhotos); } catch (e) { rawPhotos = {}; }
+                    }
+                    
+                    this.selectedBooking.parsedStartPhotos = Array.isArray(rawPhotos?.start) ? rawPhotos.start : [];
+                    this.selectedBooking.parsedEndPhotos   = Array.isArray(rawPhotos?.end) ? rawPhotos.end : [];
+                }
+
+                const targetDocType = (type === 'waiting') ? 'bast_peminjaman' : 'bast_pengembalian';
+                const existingSig = (booking.signatures || []).find(s => 
+                    s.signer_role === 'approver' && s.document_type === targetDocType
+                );
+
+                this.approverForm.existingSignatureUrl = existingSig?.signature_path ? `/storage/${existingSig.signature_path}` : null;
+
                 this.showApproverModal = true;
+                this.initApproverSignaturePad();
             },
 
-            showVerifyReturnModal: false,
-            verifyReturnForm: {
-                body_condition: false,
-                tires_condition: false,
-                lights_condition: false,
-                glass_mirrors: false,
-                brakes_condition: false,
-                interior_cleanliness: false,
-                has_stnk: false,
-                has_spare_tire: false,
-                has_jack_tools: false,
-                has_first_aid: false,
-                is_washed: false,
-                wash_receipt_photo: null,
-                admin_verification_notes: ''
+            initApproverSignaturePad() {
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        const canvas = this.$refs.approverSignatureCanvas;
+                        if (!canvas) return;
+
+                        const width = canvas.offsetWidth || canvas.parentElement.clientWidth || 400;
+                        const height = 144; // setara h-36
+
+                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                        canvas.width = width * ratio;
+                        canvas.height = height * ratio;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(ratio, ratio);
+
+                        const SignaturePadClass = window.SignaturePad || SignaturePad;
+
+                        if (!this.approverForm.signaturePad) {
+                            this.approverForm.signaturePad = new SignaturePadClass(canvas, {
+                                backgroundColor: 'rgb(255, 255, 255)', // Putih Padat
+                                penColor: 'rgb(0, 0, 128)',             // Biru Navy
+                                minWidth: 1.5,
+                                maxWidth: 3.5
+                            });
+                        } else {
+                            this.approverForm.signaturePad.clear();
+                        }
+                    }, 150);
+                });
             },
-            openVerifyReturnModal(booking) {
-                this.selectedBooking = booking;
-                
-                const endChk = (booking.checklists || []).find(c => c.type === 'end') || {};
-                
-                this.verifyReturnForm.body_condition = Boolean(endChk.body_condition);
-                this.verifyReturnForm.tires_condition = Boolean(endChk.tires_condition);
-                this.verifyReturnForm.lights_condition = Boolean(endChk.lights_condition);
-                this.verifyReturnForm.glass_mirrors = Boolean(endChk.glass_mirrors);
-                this.verifyReturnForm.brakes_condition = Boolean(endChk.brakes_condition);
-                this.verifyReturnForm.interior_cleanliness = Boolean(endChk.interior_cleanliness);
-                this.verifyReturnForm.has_stnk = Boolean(endChk.has_stnk);
-                this.verifyReturnForm.has_spare_tire = Boolean(endChk.has_spare_tire);
-                this.verifyReturnForm.has_jack_tools = Boolean(endChk.has_jack_tools);
-                this.verifyReturnForm.has_first_aid = Boolean(endChk.has_first_aid);
-                
-                // Load status dan foto cuci mobil
-                this.verifyReturnForm.is_washed = Boolean(endChk.is_washed);
-                this.verifyReturnForm.wash_receipt_photo = endChk.wash_receipt_photo || null;
-                
-                this.verifyReturnForm.admin_verification_notes = booking.log?.admin_verification_notes || '';
-                this.showVerifyReturnModal = true;
+
+            clearApproverSignature() {
+                if (this.approverForm.signaturePad) {
+                    this.approverForm.signaturePad.clear();
+                    this.approverForm.signatureError = '';
+                    this.approverForm.signatureData = '';
+                }
+            },
+
+            submitApproverReviewForm() {
+                if (this.approverForm.action === 'approve') {
+                    const isCanvasEmpty = !this.approverForm.signaturePad || this.approverForm.signaturePad.isEmpty();
+                    
+                    // Validasi wajib TTD jika tidak ada TTD tersimpan DAN canvas kosong
+                    if (!this.approverForm.existingSignatureUrl && isCanvasEmpty) {
+                        this.approverForm.signatureError = 'Tanda tangan pengesahan Approver wajib dibubuhkan untuk menyetujui!';
+                        return;
+                    }
+
+                    // Ambil data gambar dari canvas jika canvas dicoret
+                    if (!isCanvasEmpty) {
+                        this.approverForm.signatureData = this.approverForm.signaturePad.toDataURL('image/png');
+                    }
+                    
+                    this.approverForm.signatureError = '';
+                } else {
+                    // Jika menolak (reject), kososngkan error & data TTD
+                    this.approverForm.signatureError = '';
+                    this.approverForm.signatureData = '';
+                }
+
+                this.$nextTick(() => {
+                    this.$refs.approverFormElement.submit();
+                });
             },
 
             showRouteModal: false,
@@ -199,26 +391,9 @@
             startTripForm: {
                 letter_slug: '',
                 start_fuel_level: 'Full',
-                body_condition: false,
-                tires_condition: false,
-                lights_condition: false,
-                glass_mirrors: false,
-                brakes_condition: false,
-                interior_cleanliness: false,
-                has_stnk: false,
-                has_spare_tire: false,
-                has_jack_tools: false,
-                has_first_aid: false,
-                hasIncident: true,
+                items: [],
+                hasIncident: false,
                 notes: ''
-            },
-
-            // Helper: Cek apakah seluruh checklist fisik Start Trip bernilai true
-            checkStartIncidentStatus() {
-                const f = this.startTripForm;
-                const allPhysicalTrue = f.body_condition && f.tires_condition && f.lights_condition && 
-                                    f.glass_mirrors && f.brakes_condition && f.interior_cleanliness;
-                this.startTripForm.hasIncident = !allPhysicalTrue;
             },
 
             openStartTripModal(booking) {
@@ -226,22 +401,13 @@
                 this.startTripForm.letter_slug = booking.letter_slug;
                 this.startTripForm.start_fuel_level = 'Full';
                 
-                // Default checklist diset FALSE
-                this.startTripForm.body_condition = false;
-                this.startTripForm.tires_condition = false;
-                this.startTripForm.lights_condition = false;
-                this.startTripForm.glass_mirrors = false;
-                this.startTripForm.brakes_condition = false;
-                this.startTripForm.interior_cleanliness = false;
+                // Inisialisasi Dynamic Items (Default false)
+                this.startTripForm.items = this.getInitialChecklistItems();
                 
-                this.startTripForm.has_stnk = false;
-                this.startTripForm.has_spare_tire = false;
-                this.startTripForm.has_jack_tools = false;
-                this.startTripForm.has_first_aid = false;
-                
-                // Default kendala bernilai TRUE
-                this.startTripForm.hasIncident = true;
+                // Set awal hasIncident TRUE agar user wajib centang semua item sebelum start trip
+                this.startTripForm.hasIncident = true; 
                 this.startTripForm.notes = '';
+                
                 this.showStartTripModal = true;
             },
 
@@ -252,26 +418,14 @@
                 end_fuel_level: 'Full',
                 is_multi_day: false,
                 is_washed: false,
-                body_condition: false,
-                tires_condition: false,
-                lights_condition: false,
-                glass_mirrors: false,
-                brakes_condition: false,
-                interior_cleanliness: false,
-                has_stnk: false,
-                has_spare_tire: false,
-                has_jack_tools: false,
-                has_first_aid: false,
-                hasIncident: true,
-                condition_notes: ''
-            },
-
-            // Helper: Cek apakah seluruh checklist fisik Complete Trip bernilai true
-            checkCompleteIncidentStatus() {
-                const f = this.completeTripForm;
-                const allPhysicalTrue = f.body_condition && f.tires_condition && f.lights_condition && 
-                                    f.glass_mirrors && f.brakes_condition && f.interior_cleanliness;
-                this.completeTripForm.hasIncident = !allPhysicalTrue;
+                return_letter_number: '', 
+                hasIncident: true,  
+                condition_notes: '',
+                items: [],
+                signaturePad: null,
+                signatureData: '',
+                signatureError: '',
+                existingSignatureUrl: null // Ditambahkan untuk menyimpan URL preview TTD lama
             },
 
             openCompleteModal(booking) {
@@ -279,35 +433,215 @@
                 this.completeTripForm.letter_slug = booking.letter_slug;
                 this.completeTripForm.end_fuel_level = 'Full';
                 
+                // Hitung selisih HARI KALENDER saja (Abaikan Jam)
                 if (booking.start_date && booking.end_date) {
-                    const start = new Date(booking.start_date);
-                    const end = new Date(booking.end_date);
-                    const diffTime = Math.abs(end - start);
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    const startDateStr = booking.start_date.substring(0, 10);
+                    const endDateStr = booking.end_date.substring(0, 10);
+                    
+                    const start = new Date(startDateStr);
+                    const end = new Date(endDateStr);
+                    
+                    const diffTime = end.getTime() - start.getTime();
+                    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                    
                     this.completeTripForm.is_multi_day = diffDays >= 1;
                 } else {
                     this.completeTripForm.is_multi_day = false;
                 }
 
                 this.completeTripForm.is_washed = false;
-                
-                // Default checklist diset FALSE
-                this.completeTripForm.body_condition = false;
-                this.completeTripForm.tires_condition = false;
-                this.completeTripForm.lights_condition = false;
-                this.completeTripForm.glass_mirrors = false;
-                this.completeTripForm.brakes_condition = false;
-                this.completeTripForm.interior_cleanliness = false;
-                
-                this.completeTripForm.has_stnk = false;
-                this.completeTripForm.has_spare_tire = false;
-                this.completeTripForm.has_jack_tools = false;
-                this.completeTripForm.has_first_aid = false;
-                
-                // Default kendala bernilai TRUE
+                this.completeTripForm.return_letter_number = '';
+                this.completeTripForm.items = this.getInitialChecklistItems();
                 this.completeTripForm.hasIncident = true;
                 this.completeTripForm.condition_notes = '';
+
+                // Reset Signature State & Form Errors
+                this.completeTripForm.signatureError = '';
+                this.completeTripForm.signatureData = '';
+                
+                // Cek apakah pemohon sudah memiliki TTD untuk BAST Pengembalian
+                const existingSig = (booking.signatures || []).find(s => 
+                    s.signer_role === 'pemohon' && s.document_type === 'bast_pengembalian'
+                );
+
+                if (existingSig && existingSig.signature_path) {
+                    this.completeTripForm.existingSignatureUrl = `/storage/${existingSig.signature_path}`;
+                } else {
+                    this.completeTripForm.existingSignatureUrl = null;
+                }
+
                 this.showCompleteModal = true;
+                this.initCompleteSignaturePad();
+            },
+
+            initCompleteSignaturePad() {
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        const canvas = this.$refs.completeSignatureCanvas;
+                        if (!canvas) return;
+
+                        const width = canvas.offsetWidth || canvas.parentElement.clientWidth || 400;
+                        const height = 144;
+
+                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                        canvas.width = width * ratio;
+                        canvas.height = height * ratio;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(ratio, ratio);
+
+                        const SignaturePadClass = window.SignaturePad || SignaturePad;
+
+                        if (!this.completeTripForm.signaturePad) {
+                            this.completeTripForm.signaturePad = new SignaturePadClass(canvas, {
+                                backgroundColor: 'rgb(255, 255, 255)',
+                                penColor: 'rgb(0, 0, 128)',
+                                minWidth: 1.5,
+                                maxWidth: 3.5
+                            });
+                        } else {
+                            this.completeTripForm.signaturePad.clear();
+                        }
+                    }, 150);
+                });
+            },
+
+            clearCompleteSignature() {
+                if (this.completeTripForm.signaturePad) {
+                    this.completeTripForm.signaturePad.clear();
+                    this.completeTripForm.signatureError = '';
+                    this.completeTripForm.signatureData = '';
+                }
+            },
+
+            submitCompleteTripForm() {
+                const isPadEmpty = !this.completeTripForm.signaturePad || this.completeTripForm.signaturePad.isEmpty();
+                
+                // Jika canvas kosong DAN belum ada TTD yang tersimpan sebelumnya
+                if (isPadEmpty && !this.completeTripForm.existingSignatureUrl) {
+                    this.completeTripForm.signatureError = 'Tanda tangan pengesahan pengembalian wajib dibubuhkan!';
+                    return;
+                }
+
+                this.completeTripForm.signatureError = '';
+
+                // Hanya ambil data URL jika canvas tidak kosong (user membuat coretan baru)
+                if (!isPadEmpty) {
+                    this.completeTripForm.signatureData = this.completeTripForm.signaturePad.toDataURL('image/png');
+                } else {
+                    this.completeTripForm.signatureData = '';
+                }
+
+                this.$nextTick(() => {
+                    this.$refs.completeTripFormElement.submit();
+                });
+            },
+
+            // Verify Return Form State & Methods
+            showVerifyReturnModal: false,
+            verifyReturnForm: {
+                items: [],
+                is_washed: false,
+                wash_receipt_photo: null,
+                admin_verification_notes: '',
+                signaturePad: null,
+                signatureData: '',
+                signatureError: '',
+                existingSignatureUrl: null
+            },
+
+            openVerifyReturnModal(booking) {
+                this.selectedBooking = booking;
+                
+                const endChk = (booking.checklists || []).find(c => c.type === 'end') || {};
+                
+                // Jika driver sudah memasukkan items snapshot, gunakan itu. Jika belum, gunakan initial master.
+                if (endChk.items && Array.isArray(endChk.items) && endChk.items.length > 0) {
+                    this.verifyReturnForm.items = JSON.parse(JSON.stringify(endChk.items));
+                } else {
+                    this.verifyReturnForm.items = this.getInitialChecklistItems();
+                }
+                
+                this.verifyReturnForm.is_washed = Boolean(endChk.is_washed);
+                this.verifyReturnForm.wash_receipt_photo = endChk.wash_receipt_photo || null;
+                
+                this.verifyReturnForm.admin_verification_notes = booking.log?.admin_verification_notes || '';
+                
+                this.verifyReturnForm.signatureError = '';
+                this.verifyReturnForm.signatureData = '';
+
+                // Cek TTD Lama Admin Lapangan pada BAST Pengembalian
+                const existingSig = (booking.signatures || []).find(s => 
+                    s.signer_role === 'admin_lap' && s.document_type === 'bast_pengembalian'
+                );
+
+                if (existingSig && existingSig.signature_path) {
+                    this.verifyReturnForm.existingSignatureUrl = `/storage/${existingSig.signature_path}`;
+                } else {
+                    this.verifyReturnForm.existingSignatureUrl = null;
+                }
+
+                this.showVerifyReturnModal = true;
+                this.initVerifyReturnSignaturePad();
+            },
+
+            initVerifyReturnSignaturePad() {
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        const canvas = this.$refs.verifyReturnSignatureCanvas;
+                        if (!canvas) return;
+
+                        const width = canvas.offsetWidth || canvas.parentElement.clientWidth || 400;
+                        const height = 144;
+
+                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                        canvas.width = width * ratio;
+                        canvas.height = height * ratio;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(ratio, ratio);
+
+                        const SignaturePadClass = window.SignaturePad || SignaturePad;
+
+                        if (!this.verifyReturnForm.signaturePad) {
+                            this.verifyReturnForm.signaturePad = new SignaturePadClass(canvas, {
+                                backgroundColor: 'rgb(255, 255, 255)',
+                                penColor: 'rgb(0, 0, 128)',
+                                minWidth: 1.5,
+                                maxWidth: 3.5
+                            });
+                        } else {
+                            this.verifyReturnForm.signaturePad.clear();
+                        }
+                    }, 150);
+                });
+            },
+
+            clearVerifyReturnSignature() {
+                if (this.verifyReturnForm.signaturePad) {
+                    this.verifyReturnForm.signaturePad.clear();
+                    this.verifyReturnForm.signatureError = '';
+                    this.verifyReturnForm.signatureData = '';
+                }
+            },
+
+            submitVerifyReturnForm() {
+                const isCanvasEmpty = !this.verifyReturnForm.signaturePad || this.verifyReturnForm.signaturePad.isEmpty();
+                
+                if (!this.verifyReturnForm.existingSignatureUrl && isCanvasEmpty) {
+                    this.verifyReturnForm.signatureError = 'Tanda tangan verifikasi Admin Lapangan wajib dibubuhkan!';
+                    return;
+                }
+
+                if (!isCanvasEmpty) {
+                    this.verifyReturnForm.signatureData = this.verifyReturnForm.signaturePad.toDataURL('image/png');
+                }
+
+                this.verifyReturnForm.signatureError = '';
+
+                this.$nextTick(() => {
+                    this.$refs.verifyReturnFormElement.submit();
+                });
             },
 
             showCancelBookingModal: false,
@@ -393,12 +727,13 @@
                     <!-- SELECT SORT (CLEAN FLOWBITE STYLE) -->
                     <div class="relative w-full sm:w-auto shrink-0">
                         <select x-model="sort" 
-                                @change="fetchBookings()" 
-                                class="appearance-none w-full sm:w-auto pl-4 pr-10 py-2.5 text-xs font-semibold text-gray-700 bg-gray-50/50 hover:bg-gray-100/70 border border-gray-300 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 hover:border-gray-400 shadow-2xs transition-all duration-200 cursor-pointer">
-                            <option value="created_latest">Urutkan: Terbaru</option>
-                            <option value="upcoming">Urutkan: Jadwal Terdekat</option>
-                            <option value="start_desc">Urutkan: Jadwal Terjauh</option>
-                        </select>
+                            @change="fetchBookings()" 
+                            aria-label="Urutkan Peminjaman"
+                            class="appearance-none w-full sm:w-auto pl-4 pr-10 py-2.5 text-xs font-semibold text-gray-700 bg-gray-50/50 hover:bg-gray-100/70 border border-gray-300 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 hover:border-gray-400 shadow-2xs transition-all duration-200 cursor-pointer">
+                        <option value="created_latest">Urutkan: Terbaru</option>
+                        <option value="upcoming">Urutkan: Jadwal Terdekat</option>
+                        <option value="start_desc">Urutkan: Jadwal Terjauh</option>
+                    </select>
                     </div>
                 </div>
 
@@ -449,7 +784,7 @@
                                 </svg>
                                 <div>
                                     <span x-text="formatDate(booking.start_date)"></span> 
-                                    <span class="font-bold text-gray-400">s.d.</span> 
+                                    <span class="font-bold text-gray-600">s.d.</span> 
                                     <span x-text="formatDate(booking.end_date)"></span>
                                 </div>
                             </div>
@@ -498,7 +833,7 @@
                                 @if(in_array(Auth::user()->role, ['admin_lap', 'admin_app']))
                                     <template x-if="booking.status === 'pending'">
                                         <button type="button" 
-                                                @click="openReviewModal(booking)" 
+                                                @click="openReviewModal(booking);" 
                                                 class="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 font-semibold rounded-lg text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/30 inline-flex items-center justify-center gap-1.5 transition-all duration-150 ease-in-out">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current text-indigo-600 shrink-0" viewBox="0 0 24 24">
                                                 <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
@@ -551,7 +886,7 @@
 
                             {{-- MENU TITIK TIGA MOBILE --}}
                             <div class="relative shrink-0">
-                                <button @click="menuOpen = !menuOpen" @click.away="menuOpen = false" type="button" class="p-2 text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl focus:outline-none transition">
+                                <button @click="menuOpen = !menuOpen" @click.away="menuOpen = false" type="button" class="p-2 text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl focus:outline-none transition" aria-label="Menu Opsi Aksi Mobile">
                                     <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
                                         <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                                     </svg>
@@ -714,7 +1049,7 @@
                                             @if(in_array(Auth::user()->role, ['admin_lap', 'admin_app']))
                                                 <template x-if="booking.status === 'pending'">
                                                     <button type="button" 
-                                                            @click="openReviewModal(booking)" 
+                                                            @click="openReviewModal(booking);" 
                                                             class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 font-semibold rounded-lg text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/30 inline-flex items-center justify-center gap-1.5 transition-all duration-150 ease-in-out">
                                                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current text-indigo-600 shrink-0" viewBox="0 0 24 24">
                                                             <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
@@ -767,7 +1102,7 @@
 
                                     {{-- MENU TITIK TIGA DESKTOP --}}
                                     <td class="p-3 w-10 text-center relative" x-data="{ open: false }">
-                                        <button @click="open = !open" @click.away="open = false" class="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition focus:outline-none">
+                                        <button @click="open = !open" @click.away="open = false" class="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition focus:outline-none" aria-label="Menu Opsi Aksi">
                                             <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20">
                                                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                                             </svg>

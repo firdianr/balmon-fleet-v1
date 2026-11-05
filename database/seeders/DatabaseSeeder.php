@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use App\Models\Vehicle;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -80,75 +79,10 @@ class DatabaseSeeder extends Seeder
             'department' => 'Seksi Operasional',
         ]);
 
-        // 2. Seed 10 Pegawai
         $this->call([
             UserSeeder::class,
-        ]);
-
-        // 3. Seed Armada Mobil
-        Vehicle::create([
-            'plate_number' => 'H 1234 AB',
-            'slug' => 'h-1234-ab',
-            'brand' => 'Toyota',
-            'model' => 'Innova Zenix',
-            'code' => 'A',
-            'type' => 'operational',
-            'capacity' => 7,
-            'fuel_type' => 'Bensin/Hybrid',
-            'status' => 'available',
-            'notes' => 'Kondisi baik, servis rutin.',
-        ]);
-
-        Vehicle::create([
-            'plate_number' => 'H 5678 CD',
-            'slug' => 'h-5678-cd',
-            'brand' => 'Toyota',
-            'model' => 'Avanza Veloz',
-            'code' => 'B',
-            'type' => 'operational',
-            'capacity' => 7,
-            'fuel_type' => 'Bensin',
-            'status' => 'available',
-            'notes' => 'AC dingin, perlengkapan komplit.',
-        ]);
-
-        Vehicle::create([
-            'plate_number' => 'H 9012 EF',
-            'slug' => 'h-9012-ef',
-            'brand' => 'Mitsubishi',
-            'model' => 'Pajero Sport',
-            'code' => 'C',
-            'type' => 'operational',
-            'capacity' => 7,
-            'fuel_type' => 'Diesel',
-            'status' => 'available',
-            'notes' => 'Cocok untuk perjalanan lapangan luar kota.',
-        ]);
-
-        Vehicle::create([
-            'plate_number' => 'H 3456 GH',
-            'slug' => 'h-3456-gh',
-            'brand' => 'Toyota',
-            'model' => 'Hilux',
-            'code' => 'D',
-            'type' => 'monitoring',
-            'capacity' => 5,
-            'fuel_type' => 'Diesel',
-            'status' => 'available',
-            'notes' => 'Dilengkapi dengan peralatan ...',
-        ]);
-
-        Vehicle::create([
-            'plate_number' => 'H 2837 KL',
-            'slug' => 'h-2837-kl',
-            'brand' => 'Isuzu',
-            'model' => 'mu-X',
-            'code' => 'E',
-            'type' => 'monitoring',
-            'capacity' => 5,
-            'fuel_type' => 'Diesel',
-            'status' => 'available',
-            'notes' => 'Dilengkapi dengan peralatan ...',
+            VehicleSeeder::class,
+            MasterChecklistSeeder::class,
         ]);
     }
 }

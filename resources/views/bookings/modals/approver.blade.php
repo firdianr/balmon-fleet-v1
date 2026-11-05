@@ -1,6 +1,6 @@
-<!-- MODAL APPROVER DENGAN PRATINJAU CHECKLIST DETIL & FOTO BUKTI -->
+<!-- MODAL APPROVER DENGAN PRATINJAU CHECKLIST DETIL, FOTO BUKTI & SIGNATURE PAD -->
 <div x-show="showApproverModal" 
-    class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+    class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 top-0"
     x-transition:enter="transition ease-out duration-200"
     x-transition:enter-start="opacity-0 scale-95"
     x-transition:enter-end="opacity-100 scale-100"
@@ -9,7 +9,7 @@
     x-transition:leave-end="opacity-0 scale-95"
     x-cloak>
 
-    <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-gray-100" @click.away="showApproverModal = false">
+    <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-gray-100" @click.away="showApproverModal = false">
         
         <!-- HEADER MODAL -->
         <div class="px-6 py-4 text-white flex justify-between items-center shrink-0"
@@ -41,11 +41,16 @@
             </button>
         </div>
 
-        <form :action="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/approver-review` : '#'" method="POST" class="p-6 overflow-y-auto space-y-4 text-xs">
+        <form x-ref="approverFormElement"
+              :action="selectedBooking ? `/bookings/${selectedBooking.letter_slug}/approver-review` : '#'" 
+              method="POST" 
+              @submit.prevent="submitApproverReviewForm()"
+              class="p-6 overflow-y-auto space-y-4 text-xs flex-1">
             @csrf
             @method('PATCH')
 
             <input type="hidden" name="action" :value="approverForm.action">
+            <input type="hidden" name="signature" x-model="approverForm.signatureData">
 
             <!-- 1. INFORMASI UTAMA PEMINJAMAN -->
             <div class="bg-gray-50 p-4 rounded-xl border border-gray-200/80 grid grid-cols-2 gap-3 text-gray-800">
@@ -118,31 +123,10 @@
                             </div>
                         </template>
                     </div>
-
-                    <!-- FOTO BUKTI KERUSAKAN / INSIDEN -->
-                    <template x-if="selectedBooking.log.condition_photos && JSON.parse(selectedBooking.log.condition_photos).length > 0">
-                        <div class="pt-2 border-t border-cyan-200/80">
-                            <span class="text-[10px] font-bold text-rose-800 block mb-1.5 flex items-center gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                                    <line x1="12" y1="9" x2="12" y2="13"/>
-                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                                </svg>
-                                <span>Bukti Foto Insiden / Kerusakan:</span>
-                            </span>
-                            <div class="flex flex-wrap gap-2">
-                                <template x-for="(photo, index) in JSON.parse(selectedBooking.log.condition_photos)" :key="index">
-                                    <a :href="`/storage/${photo}`" target="_blank">
-                                        <img :src="`/storage/${photo}`" class="h-16 w-16 object-cover rounded-lg border border-rose-300 hover:scale-105 transition shadow-2xs">
-                                    </a>
-                                </template>
-                            </div>
-                        </div>
-                    </template>
                 </div>
             </template>
 
-            <!-- 3. RINCIAN COMPLETE ITEM CHECKLIST KENDARAAN -->
+            <!-- 3. RINCIAN COMPLETE ITEM CHECKLIST KENDARAAN (DINAMIS JSON) -->
             <template x-if="selectedBooking && selectedBooking.displayChecklists && selectedBooking.displayChecklists.length > 0">
                 <div class="space-y-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
                     <h4 class="font-bold text-slate-800 text-xs flex items-center justify-between border-b border-slate-200 pb-1.5">
@@ -164,149 +148,75 @@
                                 <div class="flex justify-between items-center border-b border-gray-100 pb-1.5">
                                     <span class="font-bold text-[10px] uppercase px-2 py-0.5 rounded-md tracking-wide flex items-center gap-1"
                                         :class="chk.type === 'start' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-indigo-100 text-indigo-800 border border-indigo-200'">
-                                        <template x-if="chk.type === 'start'">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.71 1.1-1.63 1.1-2.58 0-1.88-1.52-3.42-3.4-3.42-.95 0-1.87.39-2.58 1.1z"/>
-                                                <path d="M12 15l-3-3 8.5-8.5a2.12 2.12 0 0 1 3 3L12 15z"/>
-                                            </svg>
-                                        </template>
-                                        <template x-if="chk.type !== 'start'">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/>
-                                            </svg>
-                                        </template>
                                         <span x-text="chk.type === 'start' ? 'Keberangkatan (Pre-Trip)' : 'Pengembalian (Post-Trip)'"></span>
                                     </span>
                                     
                                     <template x-if="chk.is_washed">
-                                        <span class="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-                                            </svg>
-                                            <span>Dikembalikan Bersih</span>
+                                        <span class="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                            Dikembalikan Bersih
                                         </span>
                                     </template>
                                 </div>
 
-                                <!-- KELOMPOK 1: KONDISI FISIK KENDARAAN -->
-                                <div class="space-y-1.5">
-                                    <span class="font-bold text-gray-800 text-[11px] block border-b border-gray-100 pb-0.5 flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 text-gray-600 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                            <circle cx="11" cy="11" r="8"/>
-                                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                                        </svg>
-                                        <span>Kondisi Fisik Kendaraan:</span>
-                                    </span>
+                                <!-- KONDISI FISIK DINAMIS -->
+                                <div class="space-y-1.5" x-show="chk.items && chk.items.some(i => i.category === 'condition')">
+                                    <span class="font-bold text-gray-800 text-[11px] block border-b border-gray-100 pb-0.5">Kondisi Fisik Kendaraan:</span>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-gray-700 text-[11px]">
-                                        <div class="flex justify-between py-0.5 border-b border-gray-50">
-                                            <span>Bodi & Cat Mulus:</span>
-                                            <span class="font-bold flex items-center gap-1" :class="chk.body_condition ? 'text-emerald-600' : 'text-rose-600'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="chk.body_condition"><polyline points="20 6 9 17 4 12"/></svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="!chk.body_condition"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                <span x-text="chk.body_condition ? 'Mulus' : 'Bermasalah'"></span>
-                                            </span>
-                                        </div>
-                                        <div class="flex justify-between py-0.5 border-b border-gray-50">
-                                            <span>Kondisi Ban Baik:</span>
-                                            <span class="font-bold flex items-center gap-1" :class="chk.tires_condition ? 'text-emerald-600' : 'text-rose-600'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="chk.tires_condition"><polyline points="20 6 9 17 4 12"/></svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="!chk.tires_condition"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                <span x-text="chk.tires_condition ? 'Baik' : 'Bermasalah'"></span>
-                                            </span>
-                                        </div>
-                                        <div class="flex justify-between py-0.5 border-b border-gray-50">
-                                            <span>Lampu-Lampu Nyala:</span>
-                                            <span class="font-bold flex items-center gap-1" :class="chk.lights_condition ? 'text-emerald-600' : 'text-rose-600'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="chk.lights_condition"><polyline points="20 6 9 17 4 12"/></svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="!chk.lights_condition"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                <span x-text="chk.lights_condition ? 'Nyala' : 'Mati/Meredup'"></span>
-                                            </span>
-                                        </div>
-                                        <div class="flex justify-between py-0.5 border-b border-gray-50">
-                                            <span>Kaca & Spion Utuh:</span>
-                                            <span class="font-bold flex items-center gap-1" :class="chk.glass_mirrors ? 'text-emerald-600' : 'text-rose-600'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="chk.glass_mirrors"><polyline points="20 6 9 17 4 12"/></svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="!chk.glass_mirrors"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                <span x-text="chk.glass_mirrors ? 'Utuh' : 'Retak/Pecah'"></span>
-                                            </span>
-                                        </div>
-                                        <div class="flex justify-between py-0.5 border-b border-gray-50">
-                                            <span>Fungsi Rem Normal:</span>
-                                            <span class="font-bold flex items-center gap-1" :class="chk.brakes_condition ? 'text-emerald-600' : 'text-rose-600'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="chk.brakes_condition"><polyline points="20 6 9 17 4 12"/></svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="!chk.brakes_condition"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                <span x-text="chk.brakes_condition ? 'Normal' : 'Bermasalah'"></span>
-                                            </span>
-                                        </div>
-                                        <div class="flex justify-between py-0.5 border-b border-gray-50">
-                                            <span>Kebersihan Kabin:</span>
-                                            <span class="font-bold flex items-center gap-1" :class="chk.interior_cleanliness ? 'text-emerald-600' : 'text-rose-600'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="chk.interior_cleanliness"><polyline points="20 6 9 17 4 12"/></svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="!chk.interior_cleanliness"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                <span x-text="chk.interior_cleanliness ? 'Bersih' : 'Kotor'"></span>
-                                            </span>
-                                        </div>
+                                        <template x-for="item in (chk.items || []).filter(i => i.category === 'condition')" :key="item.id">
+                                            <div class="flex justify-between py-0.5 border-b border-gray-50">
+                                                <span x-text="item.name + ':'"></span>
+                                                <span class="font-bold" :class="item.is_checked ? 'text-emerald-600' : 'text-rose-600'" x-text="item.is_checked ? 'Baik / Normal' : 'Bermasalah'"></span>
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
 
-                                <!-- KELOMPOK 2: KELENGKAPAN SURAT & PERALATAN -->
-                                <div class="space-y-1.5 pt-1">
-                                    <span class="font-bold text-gray-800 text-[11px] block border-b border-gray-100 pb-0.5 flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 text-gray-600 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                                        </svg>
-                                        <span>Kelengkapan Surat & Peralatan Dinas:</span>
-                                    </span>
+                                <!-- KELENGKAPAN DINAS DINAMIS -->
+                                <div class="space-y-1.5 pt-1" x-show="chk.items && chk.items.some(i => i.category === 'completeness')">
+                                    <span class="font-bold text-gray-800 text-[11px] block border-b border-gray-100 pb-0.5">Kelengkapan Kendaraan Dinas:</span>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-gray-700 text-[11px]">
-                                        <div class="flex justify-between py-0.5 border-b border-gray-50">
-                                            <span>STNK Fisik:</span>
-                                            <span class="font-bold flex items-center gap-1" :class="chk.has_stnk ? 'text-emerald-600' : 'text-rose-600'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="chk.has_stnk"><polyline points="20 6 9 17 4 12"/></svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="!chk.has_stnk"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                <span x-text="chk.has_stnk ? 'Ada' : 'Tidak Ada'"></span>
-                                            </span>
-                                        </div>
-                                        <div class="flex justify-between py-0.5 border-b border-gray-50">
-                                            <span>Ban Serep:</span>
-                                            <span class="font-bold flex items-center gap-1" :class="chk.has_spare_tire ? 'text-emerald-600' : 'text-rose-600'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="chk.has_spare_tire"><polyline points="20 6 9 17 4 12"/></svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="!chk.has_spare_tire"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                <span x-text="chk.has_spare_tire ? 'Ada' : 'Tidak Ada'"></span>
-                                            </span>
-                                        </div>
-                                        <div class="flex justify-between py-0.5 border-b border-gray-50">
-                                            <span>Dongkrak & Tools:</span>
-                                            <span class="font-bold flex items-center gap-1" :class="chk.has_jack_tools ? 'text-emerald-600' : 'text-rose-600'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="chk.has_jack_tools"><polyline points="20 6 9 17 4 12"/></svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="!chk.has_jack_tools"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                <span x-text="chk.has_jack_tools ? 'Ada' : 'Tidak Ada'"></span>
-                                            </span>
-                                        </div>
-                                        <div class="flex justify-between py-0.5 border-b border-gray-50">
-                                            <span>Kotak P3K:</span>
-                                            <span class="font-bold flex items-center gap-1" :class="chk.has_first_aid ? 'text-emerald-600' : 'text-rose-600'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="chk.has_first_aid"><polyline points="20 6 9 17 4 12"/></svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-show="!chk.has_first_aid"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                <span x-text="chk.has_first_aid ? 'Ada' : 'Tidak Ada'"></span>
-                                            </span>
-                                        </div>
+                                        <template x-for="item in (chk.items || []).filter(i => i.category === 'completeness')" :key="item.id">
+                                            <div class="flex justify-between py-0.5 border-b border-gray-50">
+                                                <span x-text="item.name + ':'"></span>
+                                                <span class="font-bold" :class="item.is_checked ? 'text-emerald-600' : 'text-rose-600'" x-text="item.is_checked ? 'Ada' : 'Tidak Ada'"></span>
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
 
-                                <!-- CATATAN KERUSAKAN / KENDALA JIKA ADA -->
-                                <template x-if="chk.notes">
-                                    <div class="p-2.5 bg-rose-50 text-rose-800 rounded-lg border border-rose-200 text-[11px] space-y-0.5 mt-2">
-                                        <strong class="font-bold flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0 text-rose-600" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <!-- CATATAN KERUSAKAN TERMASUK FOTO DI DALAMNYA -->
+                                <template x-if="chk.type === 'start' ? (selectedBooking.startNotes || selectedBooking.parsedStartPhotos.length > 0) : (selectedBooking.endNotes || selectedBooking.parsedEndPhotos.length > 0)">
+                                    <div class="p-2.5 bg-rose-50 text-rose-800 rounded-lg border border-rose-200 text-[11px] space-y-2 mt-2">
+                                        <strong class="font-bold flex items-center gap-1 text-rose-900">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-rose-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                                 <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
                                                 <line x1="12" y1="9" x2="12" y2="13"/>
                                                 <line x1="12" y1="17" x2="12.01" y2="17"/>
                                             </svg>
                                             <span>Catatan Kerusakan / Kendala:</span>
                                         </strong>
-                                        <p x-text="chk.notes" class="leading-relaxed"></p>
+
+                                        {{-- TEKS CATATAN --}}
+                                        <template x-if="chk.type === 'start' ? selectedBooking.startNotes : selectedBooking.endNotes">
+                                            <p x-text="chk.type === 'start' ? selectedBooking.startNotes : selectedBooking.endNotes" class="leading-relaxed font-medium text-rose-950"></p>
+                                        </template>
+
+                                        {{-- FOTO INSIDEN DIPISAH DI MASING-MASING TAHAP --}}
+                                        <template x-if="(chk.type === 'start' ? selectedBooking.parsedStartPhotos : selectedBooking.parsedEndPhotos).length > 0">
+                                            <div class="pt-1.5 border-t border-rose-200/60">
+                                                <span class="text-[10px] font-bold text-rose-800 block mb-1">Bukti Foto Insiden / Kerusakan:</span>
+                                                <div class="flex flex-wrap gap-2">
+                                                    <template x-for="(photo, index) in (chk.type === 'start' ? selectedBooking.parsedStartPhotos : selectedBooking.parsedEndPhotos)" :key="index">
+                                                        <a :href="`/storage/${photo}`" target="_blank">
+                                                            <img :src="`/storage/${photo}`" class="h-16 w-16 object-cover rounded-lg border border-rose-300 hover:scale-105 transition shadow-2xs">
+                                                        </a>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
                                     </div>
                                 </template>
+
                             </div>
                         </template>
                     </div>
@@ -407,6 +317,52 @@
                 </div>
             </div>
 
+            <!-- ARENA TANDA TANGAN APPROVER (HANYA TAMPIL SAAT ACTION === 'APPROVE') -->
+            <div x-show="approverForm.action === 'approve'" class="space-y-1.5 pt-1">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <label class="text-xs font-bold text-gray-700 flex items-center gap-1 leading-snug">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-indigo-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                        </svg>
+                        <span x-text="approverForm.existingSignatureUrl ? 'Tanda Tangan Persetujuan (Sudah Tersedia)' : 'Tanda Tangan Pengesahan Approver'"></span> 
+                        <span class="text-rose-500">*</span>
+                    </label>
+
+                    <button type="button" 
+                            @click="clearApproverSignature()" 
+                            class="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shrink-0 shadow-2xs cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6h18"/>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                        </svg>
+                        <span>Bersihkan</span>
+                    </button>
+                </div>
+
+                {{-- Preview TTD Lama jika sudah pernah TTD --}}
+                <template x-if="approverForm.existingSignatureUrl">
+                    <div class="mb-2 p-2 bg-indigo-50/50 border border-indigo-100 rounded-xl flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <img :src="approverForm.existingSignatureUrl" class="h-10 border bg-white rounded p-1 object-contain">
+                            <span class="text-[11px] font-semibold text-indigo-900">TTD Approver tersimpan. Coret canvas di bawah jika ingin memperbarui TTD.</span>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="border-2 border-dashed border-gray-300 rounded-xl bg-white p-1 relative">
+                    <canvas x-ref="approverSignatureCanvas" 
+                            style="mix-blend-mode: normal;"
+                            class="w-full h-36 bg-white rounded-lg cursor-pointer touch-none block"></canvas>
+                </div>
+
+                <template x-if="approverForm.signatureError">
+                    <p class="text-[11px] font-bold text-rose-600 mt-1" x-text="approverForm.signatureError"></p>
+                </template>
+            </div>
+
+            <!-- CATATAN APPROVER -->
             <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1">
                     <span x-text="approverForm.action === 'reject' ? 'Alasan Penolakan' : 'Catatan Persetujuan (Opsional)'"></span>
@@ -418,6 +374,7 @@
                         class="block w-full rounded-xl border-gray-300 text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500"></textarea>
             </div>
 
+            <!-- TOMBOL AKSI MODAL -->
             <div class="flex items-center gap-3 pt-3 border-t border-gray-100 shrink-0">
                 <button type="button" @click="showApproverModal = false" class="w-1/2 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-200 transition">
                     Batal

@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('model', 100);
             $table->string('code', 100);
             $table->enum('type', ['operational', 'monitoring'])->default('operational');
+            $table->enum('drivetrain', ['2wd', '4wd'])->default('2wd');
             $table->integer('capacity');
             $table->string('fuel_type', 50);
             $table->enum('status', ['available', 'borrowed', 'maintenance'])->default('available');

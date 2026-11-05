@@ -27,7 +27,6 @@
             </div>
             <a href="{{ route('bookings.index') }}" 
                class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold rounded-lg transition">
-                <!-- Icon Arrow Left Gray -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-gray-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="19" y1="12" x2="5" y2="12"/>
                     <polyline points="12 19 5 12 12 5"/>
@@ -68,23 +67,23 @@
         }
     @endphp
 
-    <div class="py-8" x-data="{
+    <div class="pt-2 pb-6" x-data="{
+        // State Tipe Dokumen (Surat Tugas / Nota Dinas)
+        documentType: '{{ old('letter_type', 'surat_tugas') }}',
+        
         vehicleType: '{{ old('vehicle_type', 'operational') }}',
         selectedVehicleId: '{{ old('vehicle_id', '') }}',
         showConfirmModal: false,
         isParsing: false,
         
-        // Master Data
         users: {{ Illuminate\Support\Js::from($users) }},
         monitoringVehicles: {{ Illuminate\Support\Js::from($monitoringVehicles) }},
         
-        // Form Fields State
         letterNumber: '{{ old('letter_number', '') }}',
         letterFile: '{{ old('letter_file_temp', '') }}',
         destination: '{{ old('destination', '') }}',
         purpose: '{{ old('purpose', '') }}',
 
-        // Mode Perjalanan & Penanganan Nilai Kembali saat Gagal Validasi
         bookingType: '{{ $oldType }}',
         singleDate: '{{ $oldSingleDate }}',
         startTime: '{{ $oldStartTime }}',
@@ -109,7 +108,6 @@
             return (this.endDateOnlyMulti && this.endTimeMulti) ? `${this.endDateOnlyMulti} ${this.endTimeMulti}:00` : '';
         },
 
-        // Dynamic Selected Team Members (Array User IDs)
         selectedUserIds: {{ Illuminate\Support\Js::from(old('participants', [''])) }}.map(id => String(id)),
 
         addMember() {
@@ -140,11 +138,7 @@
                 text: text,
                 showConfirmButton: false,
                 timer: 3500,
-                timerProgressBar: true,
-                didOpen: (toast) => {
-                    toast.addEventListener('mouseenter', Swal.stopTimer)
-                    toast.addEventListener('mouseleave', Swal.resumeTimer)
-                }
+                timerProgressBar: true
             });
         },
 
@@ -168,10 +162,12 @@
 
             const formData = new FormData();
             formData.append('document', file);
+            formData.append('document_type', this.documentType); // Kirim jenis dokumen ke AI
             formData.append('_token', '{{ csrf_token() }}');
 
             this.isParsing = true;
-            this.showToast('info', 'Mengekstrak Surat Tugas ...');
+            const docLabel = this.documentType === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas';
+            this.showToast('info', `Mengekstrak ${docLabel}...`);
 
             try {
                 const response = await fetch('{{ route('bookings.parse_document') }}', {
@@ -216,13 +212,13 @@
                         this.selectedUserIds = data.user_ids.map(id => String(id));
                     }
 
-                    this.showToast('success', 'Autofill Berhasil!', 'Data Surat Tugas berhasil diisi otomatis.');
+                    this.showToast('success', 'Autofill Berhasil!', `Data ${docLabel} berhasil diekstrak.`);
                     this.triggerHighlight();
                 } else {
                     this.showToast('error', 'Gagal Membaca Dokumen', result.message || 'Terjadi kesalahan pada parsing file.');
                 }
             } catch (error) {
-                this.showToast('error', 'Kesalahan Server', 'Gagal memproses Surat Tugas.');
+                this.showToast('error', 'Kesalahan Server', 'Gagal memproses dokumen.');
             } finally {
                 this.isParsing = false;
             }
@@ -235,56 +231,111 @@
             return null;
         },
 
-        formatDate(dateString) {
-            if (!dateString) return '-';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('id-ID', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
+        signaturePad: null,
+        signatureData: '',
+        signatureError: '',
+
+        initSignaturePad() {
+            this.$nextTick(() => {
+                setTimeout(() => {
+                    const canvas = this.$refs.signatureCanvas;
+                    if (!canvas) return;
+
+                    // Dapatkan lebar real dari kontainer canvas
+                    const width = canvas.offsetWidth || canvas.parentElement.clientWidth || 400;
+                    const height = 160; // Tinggi fixed canvas (px)
+
+                    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                    canvas.width = width * ratio;
+                    canvas.height = height * ratio;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.scale(ratio, ratio);
+
+                    // Inisialisasi SignaturePad jika belum ada, atau clear jika sudah ada
+                    const SignaturePadClass = window.SignaturePad || SignaturePad;
+                    
+                    if (!this.signaturePad) {
+                        this.signaturePad = new SignaturePadClass(canvas, {
+                            backgroundColor: 'rgba(255, 255, 255)', // Transparan
+                            penColor: 'rgb(0, 0, 128)',                // Biru Navy
+                            minWidth: 1.5,
+                            maxWidth: 3.5
+                        });
+                    } else {
+                        this.signaturePad.clear();
+                    }
+                }, 150); // Delay 150ms memberi waktu CSS modal tampil utuh
             });
         },
 
+        clearSignature() {
+            if (this.signaturePad) {
+                this.signaturePad.clear();
+                this.signatureError = '';
+            }
+        },
+
         submitForm() {
-            this.$refs.bookingForm.submit();
+            if (!this.signaturePad || this.signaturePad.isEmpty()) {
+                this.signatureError = 'Tanda tangan wajib diisi sebelum mengirimkan pengajuan!';
+                return;
+            }
+
+            this.signatureError = '';
+            // Ambil string Base64 PNG dan set ke x-model signatureData
+            this.signatureData = this.signaturePad.toDataURL('image/png');
+
+            this.$nextTick(() => {
+                this.$refs.bookingForm.submit();
+            });
         }
     }">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
             {{-- AUTO-FILL UPLOAD CARD --}}
-            <div class="bg-indigo-50/80 p-5 rounded-xl border border-indigo-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div class="flex items-start gap-3">
-                    <div class="p-2.5 bg-indigo-600 text-white rounded-lg shadow-xs">
-                        <!-- Icon Document Text White -->
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <line x1="10" y1="9" x2="8" y2="9"/>
-                        </svg>
+            <div class="bg-indigo-50/80 p-5 rounded-xl border border-indigo-200 shadow-xs space-y-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="flex items-start gap-3">
+                        <div class="p-2.5 bg-indigo-600 text-white rounded-lg shadow-xs shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-indigo-950 text-sm">Unggah Dokumen (Auto-Fill Form)</h4>
+                            <p class="text-xs text-indigo-700 mt-0.5">Unggah berkas PDF Surat Tugas atau Nota Dinas untuk mengekstrak data otomatis via AI.</p>
+                        </div>
                     </div>
-                    <div>
-                        <h4 class="font-bold text-indigo-950 text-sm">Unggah Surat Tugas (Auto-Fill Form)</h4>
-                        <p class="text-xs text-indigo-700 mt-0.5">Unggah berkas PDF Surat Tugas untuk mengisi otomatis Nomor Surat, Jadwal, Maksud, dan Anggota Tim.</p>
-                    </div>
+
+                    <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition shrink-0" :class="{ 'opacity-50 cursor-not-allowed': isParsing }">
+                        <template x-if="!isParsing">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </template>
+                        <span x-text="isParsing ? 'Membaca Dokumen...' : 'Unggah PDF Dokumen'"></span>
+                        <input type="file" accept="application/pdf" class="hidden" @change="handleFileUpload" :disabled="isParsing">
+                    </label>
                 </div>
 
-                <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition shrink-0" :class="{ 'opacity-50 cursor-not-allowed': isParsing }">
-                    <template x-if="!isParsing">
-                        <!-- Icon Upload White -->
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
-                    </template>
-                    <span x-text="isParsing ? 'Membaca Surat Tugas...' : 'Unggah PDF Surat Tugas'"></span>
-                    <input type="file" accept="application/pdf" class="hidden" @change="handleFileUpload" :disabled="isParsing">
-                </label>
+                {{-- PILIHAN JENIS DOKUMEN --}}
+                <div class="pt-3 border-t border-indigo-200/60 flex items-center gap-6">
+                    <span class="text-xs font-bold text-indigo-950">Jenis Dokumen:</span>
+                    <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-800">
+                        <input type="radio" x-model="documentType" value="surat_tugas" class="text-indigo-600 focus:ring-indigo-500">
+                        <span>Surat Tugas</span>
+                    </label>
+                    <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-800">
+                        <input type="radio" x-model="documentType" value="nota_dinas" class="text-indigo-600 focus:ring-indigo-500">
+                        <span>Nota Dinas</span>
+                    </label>
+                </div>
             </div>
 
             {{-- FORM PERMOHONAN --}}
@@ -293,30 +344,29 @@
                     action="{{ route('bookings.store') }}" 
                     method="POST" 
                     enctype="multipart/form-data" 
-                    @submit.prevent="showConfirmModal = true" 
+                    @submit.prevent="showConfirmModal = true; initSignaturePad();" 
                     class="space-y-6">
                     @csrf
 
+                    <input type="hidden" name="letter_type" x-model="documentType">
                     <input type="hidden" name="letter_file_temp" x-model="letterFile">
                     <input type="hidden" name="booking_type" x-model="bookingType">
                     <input type="hidden" name="start_date" :value="finalStartDate">
                     <input type="hidden" name="end_date" :value="finalEndDate">
+                    <input type="hidden" name="signature" x-model="signatureData">
 
                     <div class="space-y-2">
                         <label class="block text-sm font-bold text-gray-700">
-                            Berkas Surat Tugas (PDF) <span class="text-rose-500">*</span>
+                            Berkas <span x-text="documentType === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas'"></span> (PDF) <span class="text-rose-500">*</span>
                         </label>
 
                         <div x-show="letterFile" x-transition class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
                             <div class="flex items-center gap-2.5">
                                 <div class="p-2 bg-emerald-600 text-white rounded-lg shadow-xs">
-                                    <!-- Icon Check White -->
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="20 6 9 17 4 12"/>
-                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
                                 <div>
-                                    <p class="text-xs font-bold text-emerald-900">Berkas Surat Tugas Terhubung</p>
+                                    <p class="text-xs font-bold text-emerald-900">Berkas Dokumen Terhubung</p>
                                     <p class="text-[11px] text-emerald-700 font-mono" x-text="letterFile"></p>
                                 </div>
                             </div>
@@ -332,23 +382,19 @@
                         </div>
                     </div>
 
-                    {{-- INFORMASI NOMOR SURAT TUGAS --}}
+                    {{-- NOMOR SURAT / NOTA DINAS --}}
                     <div>
-                        <label class="block text-sm font-bold text-gray-700">Nomor Surat Tugas <span class="text-rose-500">*</span></label>
+                        <label class="block text-sm font-bold text-gray-700">
+                            Nomor <span x-text="documentType === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas'"></span> <span class="text-rose-500">*</span>
+                        </label>
                         <input type="text" id="letter_number" name="letter_number" x-model="letterNumber" placeholder="Contoh: xxx/Balmon.xx/KP.xx.xx/xx/20xx" required
                                class="mt-1 block w-full rounded-lg border-gray-300 shadow-2xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-sm font-mono font-bold">
                     </div>
 
-                    {{-- 1. PEMILIHAN JENIS KENDARAAN DINAS --}}
+                    {{-- PEMILIHAN JENIS KENDARAAN DINAS --}}
                     <div>
                         <h3 class="text-base font-bold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
-                            <!-- Icon Car Indigo -->
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A2 2 0 0 0 2 12v4c0 .6.4 1 1 1h2"/>
-                                <circle cx="7" cy="17" r="2"/>
-                                <path d="M9 17h6"/>
-                                <circle cx="17" cy="17" r="2"/>
-                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-600 stroke-2" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A2 2 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
                             <span>Kebutuhan Jenis Armada</span>
                         </h3>
 
@@ -357,13 +403,7 @@
                                    :class="vehicleType === 'operational' ? 'border-indigo-600 bg-indigo-50/40 ring-2 ring-indigo-500/20' : 'border-gray-200'">
                                 <div class="flex items-center justify-between mb-2">
                                     <div class="flex items-center gap-2 font-bold text-sm text-gray-900">
-                                        <!-- Icon Truck/Van Indigo -->
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                            <rect x="1" y="3" width="15" height="13" rx="2"/>
-                                            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
-                                            <circle cx="5.5" cy="18.5" r="2.5"/>
-                                            <circle cx="18.5" cy="18.5" r="2.5"/>
-                                        </svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-600 stroke-2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                                         <span>Kendaraan Operasional</span>
                                     </div>
                                     <input type="radio" name="vehicle_type" value="operational" x-model="vehicleType" class="text-indigo-600 focus:ring-indigo-500">
@@ -377,10 +417,7 @@
                                    :class="vehicleType === 'monitoring' ? 'border-indigo-600 bg-indigo-50/40 ring-2 ring-indigo-500/20' : 'border-gray-200'">
                                 <div class="flex items-center justify-between mb-2">
                                     <div class="flex items-center gap-2 font-bold text-sm text-gray-900">
-                                        <!-- Icon Signal/Antenna Indigo -->
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M2 12h5l2 5 3-10 3 7 2-2h5"/>
-                                        </svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-600 stroke-2" viewBox="0 0 24 24"><path d="M2 12h5l2 5 3-10 3 7 2-2h5"/></svg>
                                         <span>Kendaraan Monitoring</span>
                                     </div>
                                     <input type="radio" name="vehicle_type" value="monitoring" x-model="vehicleType" class="text-indigo-600 focus:ring-indigo-500">
@@ -395,11 +432,7 @@
                     {{-- DROPDOWN MOBIL MONITORING --}}
                     <div x-show="vehicleType === 'monitoring'" x-transition class="bg-indigo-50/60 p-4 rounded-xl border border-indigo-200 space-y-3">
                         <label class="block text-sm font-bold text-indigo-950 flex items-center gap-1.5">
-                            <!-- Icon Search Indigo -->
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="11" cy="11" r="8"/>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                             <span>Pilih Mobil Monitoring</span> <span class="text-rose-500">*</span>
                         </label>
 
@@ -415,11 +448,7 @@
                     {{-- CATATAN SPESIFIKASI KENDARAAN --}}
                     <div>
                         <label class="block text-sm font-bold text-gray-700 flex items-center gap-1.5">
-                            <!-- Icon Pencil Indigo -->
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             <span>Catatan Kebutuhan Kendaraan</span>
                         </label>
                         <textarea name="vehicle_requirements" rows="2" 
@@ -427,27 +456,17 @@
                             class="mt-1 block w-full rounded-lg border-gray-300 shadow-2xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium">{{ old('vehicle_requirements') }}</textarea>
                     </div>
 
-                    {{-- 2. JADWAL & DESTINASI --}}
+                    {{-- JADWAL & DESTINASI --}}
                     <div>
                         <h3 class="text-base font-bold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
-                            <!-- Icon Calendar Indigo -->
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                                <line x1="16" y1="2" x2="16" y2="6"/>
-                                <line x1="8" y1="2" x2="8" y2="6"/>
-                                <line x1="3" y1="10" x2="21" y2="10"/>
-                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-600 stroke-2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                             <span>Waktu & Destinasi Perjalanan</span>
                         </h3>
 
                         {{-- TOGGLE MODE WAKTU --}}
                         <div class="p-3 bg-gray-50 rounded-xl border border-gray-200/80 mb-4 flex items-center gap-4">
                             <span class="text-xs font-bold text-gray-600 uppercase flex items-center gap-1">
-                                <!-- Icon Clock Gray -->
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-500 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <polyline points="12 6 12 12 16 14"/>
-                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-500 stroke-2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                                 <span>Durasi Perjalanan:</span>
                             </span>
                             <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-800">
@@ -532,11 +551,7 @@
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 flex items-center gap-1.5">
-                                    <!-- Icon Map Pin Indigo -->
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-                                        <circle cx="12" cy="10" r="3"/>
-                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                                     <span>Tujuan Perjalanan Dinas</span> <span class="text-rose-500">*</span>
                                 </label>
                                 <input type="text" id="destination" name="destination" x-model="destination" placeholder="Contoh: Kota Semarang" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-2xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium">
@@ -544,11 +559,7 @@
 
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 flex items-center gap-1.5">
-                                    <!-- Icon Clipboard/File Indigo -->
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                        <polyline points="14 2 14 8 20 8"/>
-                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                     <span>Maksud / Keperluan Perjalanan</span> <span class="text-rose-500">*</span>
                                 </label>
                                 <textarea id="purpose" name="purpose" x-model="purpose" rows="3" placeholder="Jelaskan maksud agenda kegiatan..." required class="mt-1 block w-full rounded-lg border-gray-300 shadow-2xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium"></textarea>
@@ -556,28 +567,18 @@
                         </div>
                     </div>
 
-                    {{-- 3. DROPDOWN ANGGOTA TIM DINAMIS DARI DATABASE --}}
+                    {{-- ANGGOTA TIM DINAMIS DARI DATABASE --}}
                     <div>
                         <div class="flex items-center justify-between border-b pb-2 mb-4">
                             <div>
                                 <h3 class="text-base font-bold text-gray-900 flex items-center gap-2">
-                                    <!-- Icon Users Indigo -->
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                                        <circle cx="9" cy="7" r="4"/>
-                                        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-600 stroke-2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                     <span>Anggota Tim / Pengikut Dinas</span>
                                 </h3>
                                 <p class="text-xs text-gray-500">Pilih anggota tim dari pegawai, admin lapangan, atau driver terdaftar.</p>
                             </div>
                             <button type="button" @click="addMember()" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
-                                <!-- Icon Plus Indigo -->
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="12" y1="5" x2="12" y2="19"/>
-                                    <line x1="5" y1="12" x2="19" y2="12"/>
-                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                                 <span>Tambah Anggota</span>
                             </button>
                         </div>
@@ -602,11 +603,7 @@
                                             @click="removeMember(index)" 
                                             x-show="selectedUserIds.length > 1" 
                                             class="text-rose-600 hover:text-rose-800 p-1 font-bold rounded hover:bg-rose-50 transition">
-                                        <!-- Icon Trash Rose -->
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                            <polyline points="3 6 5 6 21 6"/>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                        </svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                     </button>
                                 </div>
                             </template>
@@ -619,99 +616,123 @@
                             Batal
                         </a>
                         <button type="submit" class="px-6 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-xs transition flex items-center gap-2">
-                            <!-- Icon Paper Plane White -->
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="22" y1="2" x2="11" y2="13"/>
-                                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                             <span>Lanjutkan Permohonan</span>
                         </button>
                     </div>
 
                 </form>
             </div>
+        </div>
 
-            {{-- MODAL KONFIRMASI PEMINJAMAN --}}
-            <div x-show="showConfirmModal" 
-                class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" 
-                x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 scale-95"
-                x-transition:enter-end="opacity-100 scale-100"
-                x-transition:leave="transition ease-in duration-150"
-                x-transition:leave-start="opacity-100 scale-100"
-                x-transition:leave-end="opacity-0 scale-95"
-                x-cloak>
-                
-                <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden" @click.away="showConfirmModal = false">
-                    <div class="bg-indigo-600 px-6 py-4 text-white flex justify-between items-center">
-                        <h3 class="font-bold text-base flex items-center gap-2">
-                            <!-- Icon Clipboard Check White -->
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-100 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-                                <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-                                <path d="m9 14 2 2 4-4"/>
-                            </svg>
-                            <span>Konfirmasi Pengajuan Permohonan</span>
-                        </h3>
-                        <button type="button" @click="showConfirmModal = false" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"/>
-                                <line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
-                        </button>
+        {{-- MODAL KONFIRMASI PEMINJAMAN & TANDA TANGAN --}}
+        <div x-show="showConfirmModal" 
+            class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" 
+            x-cloak>
+            
+            <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col" @click.away="showConfirmModal = false">
+                {{-- Header Modal --}}
+                <div class="bg-indigo-600 px-6 py-4 text-white flex justify-between items-center shrink-0">
+                    <h3 class="font-bold text-base flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-indigo-100 stroke-2" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="m9 14 2 2 4-4"/></svg>
+                        <span>Konfirmasi Pengajuan & Tanda Tangan</span>
+                    </h3>
+                    <button type="button" @click="showConfirmModal = false" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+
+                {{-- Body Modal (Scrollable) --}}
+                <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                    <p class="text-xs text-gray-500">Pastikan rincian permohonan sudah benar dan bubuhkan tanda tangan Anda di bawah ini:</p>
+
+                    {{-- Ringkasan Permohonan --}}
+                    <div class="bg-gray-50 p-3.5 rounded-lg border border-gray-200 text-xs space-y-2">
+                        <div class="flex justify-between border-b pb-1.5">
+                            <span class="text-gray-500 font-semibold">Jenis Dokumen:</span>
+                            <span class="font-bold text-indigo-700" x-text="documentType === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas'"></span>
+                        </div>
+
+                        <div class="flex justify-between border-b pb-1.5">
+                            <span class="text-gray-500 font-semibold">Tipe Armada:</span>
+                            <span class="font-bold text-indigo-700 uppercase" x-text="vehicleType === 'monitoring' ? 'Monitoring' : 'Operasional'"></span>
+                        </div>
+
+                        <template x-if="vehicleType === 'monitoring'">
+                            <div class="flex justify-between border-b pb-1.5">
+                                <span class="text-gray-500 font-semibold">Mobil Dipilih:</span>
+                                <span class="font-bold text-gray-900" x-text="getSelectedVehicleDetail() ? (getSelectedVehicleDetail().brand + ' ' + getSelectedVehicleDetail().model + ' (' + getSelectedVehicleDetail().plate_number + ')') : 'Belum dipilih'"></span>
+                            </div>
+                        </template>
+
+                        <template x-if="vehicleType === 'operational'">
+                            <div class="flex justify-between border-b pb-1.5">
+                                <span class="text-gray-500 font-semibold">Penentuan Unit:</span>
+                                <span class="font-bold text-amber-700 italic">Akan Ditentukan Admin Lapangan</span>
+                            </div>
+                        </template>
+
+                        <div class="flex justify-between border-b pb-1.5">
+                            <span class="text-gray-500 font-semibold">Waktu Mulai:</span>
+                            <span class="font-bold text-gray-900" x-text="finalStartDate || '-'"></span>
+                        </div>
+
+                        <div class="flex justify-between border-b pb-1.5">
+                            <span class="text-gray-500 font-semibold">Waktu Selesai:</span>
+                            <span class="font-bold text-gray-900" x-text="finalEndDate || '-'"></span>
+                        </div>
+
+                        <div class="flex justify-between border-b pb-1.5">
+                            <span class="text-gray-500 font-semibold">Tujuan:</span>
+                            <span class="font-bold text-gray-900" x-text="destination || '-'"></span>
+                        </div>
                     </div>
 
-                    <div class="p-6 space-y-4">
-                        <p class="text-xs text-gray-500">Pastikan rincian kebutuhan permohonan peminjaman armada Anda sudah benar sebelum dikirimkan:</p>
-
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm space-y-2.5">
-                            <div class="flex justify-between border-b pb-1.5">
-                                <span class="text-gray-500 text-xs font-semibold">Tipe Armada:</span>
-                                <span class="font-bold text-indigo-700 uppercase" x-text="vehicleType === 'monitoring' ? 'Monitoring' : 'Operasional'"></span>
-                            </div>
-
-                            <template x-if="vehicleType === 'monitoring'">
-                                <div class="flex justify-between border-b pb-1.5">
-                                    <span class="text-gray-500 text-xs font-semibold">Mobil Dipilih:</span>
-                                    <span class="font-bold text-gray-900" x-text="getSelectedVehicleDetail() ? (getSelectedVehicleDetail().brand + ' ' + getSelectedVehicleDetail().model + ' (' + getSelectedVehicleDetail().plate_number + ')') : 'Belum dipilih'"></span>
-                                </div>
-                            </template>
-
-                            <template x-if="vehicleType === 'operational'">
-                                <div class="flex justify-between border-b pb-1.5">
-                                    <span class="text-gray-500 text-xs font-semibold">Penentuan Unit:</span>
-                                    <span class="font-bold text-amber-700 text-xs italic">Akan Ditentukan Admin Lapangan</span>
-                                </div>
-                            </template>
-
-                            <div class="flex justify-between border-b pb-1.5">
-                                <span class="text-gray-500 text-xs font-semibold">Waktu Mulai:</span>
-                                <span class="font-bold text-gray-900 text-xs" x-text="finalStartDate || '-'"></span>
-                            </div>
-
-                            <div class="flex justify-between border-b pb-1.5">
-                                <span class="text-gray-500 text-xs font-semibold">Waktu Selesai:</span>
-                                <span class="font-bold text-gray-900 text-xs" x-text="finalEndDate || '-'"></span>
-                            </div>
-
-                            <div class="flex justify-between border-b pb-1.5">
-                                <span class="text-gray-500 text-xs font-semibold">Tujuan:</span>
-                                <span class="font-bold text-gray-900" x-text="destination || '-'"></span>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center gap-3 pt-2">
-                            <button type="button" @click="showConfirmModal = false" class="w-1/2 py-2.5 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 transition">
-                                Periksa Kembali
-                            </button>
-                            <button type="button" @click="submitForm()" class="w-1/2 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-xs transition flex items-center justify-center gap-1.5">
-                                <!-- Icon Check White -->
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                    <polyline points="20 6 9 17 4 12"/>
+                    {{-- ARENA TANDA TANGAN (SIGNATURE PAD) --}}
+                    <div class="space-y-1.5 pt-1">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <label class="text-xs font-bold text-gray-700 flex items-center gap-1 leading-snug">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-indigo-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 20h9"/>
+                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                                 </svg>
-                                <span>Ya, Kirim Pengajuan</span>
+                                <span>Dengan ini Anda menandatangani Formulir & BAST Peminjaman</span> 
+                                <span class="text-rose-500">*</span>
+                            </label>
+
+                            {{-- TOMBOL BERSIHKAN CANVAS --}}
+                            <button type="button" 
+                                    @click="clearSignature()" 
+                                    class="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shrink-0 shadow-2xs cursor-pointer">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 6h18"/>
+                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                </svg>
+                                <span>Bersihkan</span>
                             </button>
                         </div>
+
+                        <div class="border-2 border-dashed border-gray-300 rounded-xl bg-white p-1 relative">
+                            <canvas x-ref="signatureCanvas" 
+                                style="mix-blend-mode: normal;"
+                                class="w-full h-40 bg-white rounded-lg cursor-pointer touch-none block"></canvas>
+                        </div>
+
+                        <template x-if="signatureError">
+                            <p class="text-[11px] font-bold text-rose-600 mt-1" x-text="signatureError"></p>
+                        </template>
+                    </div>
+
+                    {{-- Tombol Aksi --}}
+                    <div class="flex items-center gap-3 pt-2">
+                        <button type="button" @click="showConfirmModal = false" class="w-1/2 py-2.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 transition">
+                            Periksa Kembali
+                        </button>
+                        <button type="button" @click="submitForm()" class="w-1/2 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-xs transition flex items-center justify-center gap-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Ya, Kirim Pengajuan</span>
+                        </button>
                     </div>
                 </div>
             </div>

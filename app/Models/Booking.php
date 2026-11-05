@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Models\BookingSignature;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
@@ -13,9 +15,13 @@ class Booking extends Model
     use HasFactory;
 
     protected $fillable = [
+        'draft_booking_id',
+        'letter_type',
         'letter_number',
         'letter_slug',
         'letter_file',
+        'return_letter_number',
+        'return_letter_file',
         'bast_peminjaman',
         'bast_pengembalian',
         'user_id',
@@ -143,5 +149,26 @@ class Booking extends Model
     public function endChecklist()
     {
         return $this->hasOne(TripChecklist::class)->where('type', 'end');
+    }
+
+    // Relasi dengan DraftBooking (opsional, karena tidak semua booking berasal dari draft)
+    public function draftBooking(): BelongsTo
+    {
+        return $this->belongsTo(DraftBooking::class, 'draft_booking_id');
+    }
+
+    // Relasi 1 Booking punya banyak TTD
+    public function signatures(): HasMany
+    {
+        return $table = $this->hasMany(BookingSignature::class);
+    }
+
+    // Helper method untuk mengambil TTD spesifik dengan mudah
+    public function getSignature(string $documentType, string $signerRole)
+    {
+        return $this->signatures
+            ->where('document_type', $documentType)
+            ->where('signer_role', $signerRole)
+            ->first();
     }
 }

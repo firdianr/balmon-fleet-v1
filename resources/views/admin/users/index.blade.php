@@ -35,7 +35,7 @@
         
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
             
-            {{-- AREA SEARCH & DROPDOWN SORTING (STACK MOBILE, INLINE DESKTOP) --}}
+            {{-- AREA SEARCH & DROPDOWN SORTING --}}
             <div class="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-xs flex flex-col md:flex-row justify-between items-center gap-3">
                 <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:max-w-xl">
                     {{-- KOTAK PENCARIAN REAL-TIME --}}
@@ -49,6 +49,7 @@
                         <input type="text" 
                             x-model="search" 
                             @input.debounce.300ms="fetchUsers()" 
+                            aria-label="Cari User atau Pegawai"
                             placeholder="Cari Nama, NIP, Email, Seksi..." 
                             class="pl-10 pr-10 py-2.5 w-full text-sm border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs">
                         
@@ -63,6 +64,7 @@
                     {{-- DROPDOWN MODE PENGURUTAN --}}
                     <select x-model="sort" 
                             @change="fetchUsers()" 
+                            aria-label="Urutkan Daftar User"
                             class="w-full sm:w-auto py-2.5 px-4 text-sm border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs bg-white font-semibold text-gray-700 cursor-pointer">
                         <option value="name_asc">Nama (A - Z)</option>
                         <option value="name_desc">Nama (Z - A)</option>
@@ -81,8 +83,8 @@
                 </a>
             </div>
 
-            {{-- 1. TAMPILAN KARTU SMARTPHONE / MOBILE (block md:hidden) --}}
-            <div class="block md:hidden space-y-3">
+            {{-- 1. TAMPILAN KARTU SMARTPHONE / MOBILE (Kunci min-h-[580px] cegah CLS) --}}
+            <div class="block md:hidden space-y-3 min-h-[580px]">
                 <template x-for="user in users" :key="user.id">
                     <div class="bg-white rounded-2xl border border-gray-200/80 p-4 shadow-xs space-y-3">
                         <div class="flex items-start justify-between gap-2 border-b border-gray-100 pb-2.5">
@@ -91,7 +93,6 @@
                                 <p class="font-mono text-xs text-indigo-600 font-semibold mt-0.5" x-text="user.nip ? 'NIP: ' + user.nip : 'NIP: -'"></p>
                             </div>
                             
-                            {{-- BADGE ROLE WARNA-WARNI MOBILE --}}
                             <span class="px-2.5 py-1 text-[11px] font-extrabold rounded-full shrink-0 uppercase tracking-wider border shadow-2xs"
                                 :class="{
                                     'bg-purple-100 text-purple-800 border-purple-200': user.role === 'admin_app',
@@ -142,7 +143,6 @@
                             </div>
                         </div>
 
-                        {{-- AKSI MOBILE --}}
                         <div class="pt-2.5 border-t border-gray-100 flex items-center justify-end gap-2">
                             <a :href="`/admin-app/users/${user.slug}/edit`" 
                                class="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs transition text-center flex items-center justify-center gap-1.5">
@@ -156,7 +156,8 @@
                             <template x-if="user.id !== {{ auth()->id() }}">
                                 <button type="button" 
                                         @click="selectedUser = user; showDeleteModal = true" 
-                                        class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition text-center flex items-center justify-center gap-1.5">
+                                        class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition text-center flex items-center justify-center gap-1.5"
+                                        aria-label="Hapus Akun User">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                         <polyline points="3 6 5 6 21 6"/>
                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -173,9 +174,9 @@
                 </div>
             </div>
 
-            {{-- 2. TAMPILAN TABEL DESKTOP (hidden md:block) --}}
-            <div class="hidden md:block bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
-                <div class="overflow-x-auto">
+            {{-- 2. TAMPILAN TABEL DESKTOP (Kunci min-h-[520px] cegah CLS) --}}
+            <div class="hidden md:block bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden min-h-[580px]">
+                <div class="overflow-x-auto min-h-[520px]">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600 uppercase">
@@ -232,7 +233,8 @@
                                             <template x-if="user.id !== {{ auth()->id() }}">
                                                 <button type="button" 
                                                         @click="selectedUser = user; showDeleteModal = true" 
-                                                        class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-2xs transition">
+                                                        class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-2xs transition"
+                                                        aria-label="Hapus Akun User">
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                                         <polyline points="3 6 5 6 21 6"/>
                                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -280,7 +282,7 @@
                             </svg>
                             <span>Konfirmasi Hapus Akun User</span>
                         </h3>
-                        <button type="button" @click="showDeleteModal = false" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+                        <button type="button" @click="showDeleteModal = false" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition" aria-label="Tutup Modal Hapus">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                 <line x1="18" y1="6" x2="6" y2="18"/>
                                 <line x1="6" y1="6" x2="18" y2="18"/>

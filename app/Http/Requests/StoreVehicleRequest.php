@@ -23,6 +23,7 @@ class StoreVehicleRequest extends FormRequest
             'model'        => 'required|string|max:100',
             'code'         => 'required|string|max:100',
             'type'         => 'required|in:operational,monitoring',
+            'drivetrain'   => 'required|in:2wd,4wd',
             'capacity'     => 'required|integer|min:1',
             'fuel_type'    => 'required|string|max:50',
             'status'       => 'required|in:available,borrowed,maintenance',
@@ -46,6 +47,8 @@ class StoreVehicleRequest extends FormRequest
             'fuel_type.required'    => 'Jenis bahan bakar wajib diisi.',
             'photo.image'           => 'File foto harus berupa gambar.',
             'photo.max'             => 'Ukuran foto kendaraan maksimal 8MB.',
+            'drivetrain.required'   => 'Jenis transmisi wajib diisi.',
+            'drivetrain.in'         => 'Jenis transmisi harus berupa "2wd" atau "4wd".',
         ];
     }
 }
