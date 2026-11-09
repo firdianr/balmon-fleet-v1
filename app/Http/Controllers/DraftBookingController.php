@@ -21,8 +21,12 @@ class DraftBookingController extends Controller
         $user = Auth::user();
 
         $drafts = DraftBooking::with(['user', 'vehicle', 'driver', 'reviewer', 'booking'])
+            // Jika bukan Admin (app/lap) atau Approver, filter hanya untuk Pemohon ATAU Driver yang ditunjuk
             ->when(!in_array($user->role, ['admin_app', 'admin_lap', 'approver']), function ($query) use ($user) {
-                $query->where('user_id', $user->id);
+                $query->where(function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                      ->orWhere('driver_id', $user->id);
+                });
             })
             ->latest()
             ->paginate(10);
@@ -217,6 +221,37 @@ class DraftBookingController extends Controller
             ]);
 
             $msg = 'Permohonan draft armada berhasil disetujui dan alokasi unit telah disimpan.';
+
+            // --- 1. NOTIFIKASI WA KE PEMOHON ---
+            if (!empty($draftBooking->user?->phone)) {
+                $driverName = $draftBooking->driver ? $draftBooking->driver->name : 'Lepas Kunci (Tanpa Driver)';
+                
+                $waMessagePemohon = "✅ *PERMOHONAN DRAFT ARMADA DISETUJUI*\n\n"
+                    . "Halo *" . $draftBooking->user->name . "*,\n"
+                    . "Permohonan armada Anda melalui Draft telah ditinjau dan **DISETUJUI** oleh Admin Lapangan (" . $user->name . ").\n\n"
+                    . "📋 *Rincian Alokasi:*\n"
+                    . "• Unit Armada: *" . $vehicle->brand . " " . $vehicle->model . " (" . $vehicle->plate_number . ")*\n"
+                    . "• Pengemudi: *" . $driverName . "*\n\n"
+                    . "Silakan lanjutkan ke tahap pengajuan **Peminjaman Dinas (Formal Booking)** melalui sistem Balmon Fleet.";
+
+                WhatsAppService::sendMessage($draftBooking->user->phone, $waMessagePemohon);
+            }
+
+            // --- 2. NOTIFIKASI WA KE DRIVER YANG DITUNJUK ---
+            if ($draftBooking->driver_id && !empty($draftBooking->driver?->phone)) {
+                $waMessageDriver = "🚘 *PENUGASAN DRAFT ARMADA BARU*\n\n"
+                    . "Halo *" . $draftBooking->driver->name . "*,\n"
+                    . "Anda telah ditunjuk oleh Admin Lapangan (" . $user->name . ") sebagai pengemudi untuk jadwal permohonan draft armada berikut:\n\n"
+                    . "📋 *Rincian Penugasan:*\n"
+                    . "• Pemohon: *" . $draftBooking->user->name . "*\n"
+                    . "• Unit Armada: *" . $vehicle->brand . " " . $vehicle->model . " (" . $vehicle->plate_number . ")*\n"
+                    . "• Tujuan: *" . $draftBooking->destination . "*\n"
+                    . "• Tanggal: *" . date('d/m/Y H:i', strtotime($draftBooking->start_date)) . " s.d. " . date('d/m/Y H:i', strtotime($draftBooking->end_date)) . "*\n\n"
+                    . "Mohon persiapkan diri dan pantau pembaruan status peminjaman formal selanjutnya di sistem Balmon Fleet.";
+
+                WhatsAppService::sendMessage($draftBooking->driver->phone, $waMessageDriver);
+            }
+
         } else {
             $draftBooking->update([
                 'status'      => 'rejected',
@@ -226,6 +261,18 @@ class DraftBookingController extends Controller
             ]);
 
             $msg = 'Permohonan draft armada telah ditolak.';
+
+            // --- NOTIFIKASI WA SAAT DITOLAK ---
+            if (!empty($draftBooking->user?->phone)) {
+                $waMessage = "❌ *PERMOHONAN DRAFT ARMADA DITOLAK*\n\n"
+                    . "Halo *" . $draftBooking->user->name . "*,\n"
+                    . "Mohon maaf, permohonan armada Anda melalui Draft telah **DITOLAK** oleh Admin Lapangan.\n\n"
+                    . "📝 *Alasan Penolakan:*\n"
+                    . "\"" . $validated['admin_note'] . "\"\n\n"
+                    . "Silakan periksa kembali permohonan Anda atau hubungi Admin Lapangan untuk informasi lebih lanjut.";
+
+                WhatsAppService::sendMessage($draftBooking->user->phone, $waMessage);
+            }
         }
 
         return redirect()->route('draft-bookings.index')->with('success', $msg);

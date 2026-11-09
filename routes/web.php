@@ -149,8 +149,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::middleware(['role:driver,admin_lap,admin_app,pegawai'])->prefix('bookings/{booking:letter_slug}')->name('bookings.')->group(function () {
+        // Form Log Keberangkatan & Kepulangan (Driver / Pemohon / Admin)
         Route::patch('/start-trip', [BookingController::class, 'startTrip'])->name('start_trip');
         Route::patch('/complete-trip', [BookingController::class, 'completeTrip'])->name('complete_trip');
+
+        // Penandatanganan oleh Pemohon
+        Route::patch('/sign-departure', [BookingController::class, 'signDeparture'])->name('sign_departure');
+        Route::patch('/sign-return', [BookingController::class, 'signReturn'])->name('sign_return');
     });
 
 });

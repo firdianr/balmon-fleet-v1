@@ -54,21 +54,50 @@
             <input type="hidden" name="signature" x-model="reviewForm.signatureData">
 
             <!-- Informasi Ringkasan -->
-            <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-xs space-y-1.5">
-                <div class="flex justify-between">
-                    <span class="text-gray-500 font-medium">Pemohon:</span>
-                    <span class="font-bold text-gray-900" x-text="selectedBooking?.user?.name || '-'"></span>
+            <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-xs space-y-2">
+                <div class="flex justify-between items-center border-b border-gray-200/80 pb-2">
+                    <div class="flex items-center gap-1.5 font-bold text-gray-800">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                        <span>Dokumen Permohonan</span>
+                    </div>
+
+                    <!-- Tombol Lihat Formulir Permohonan PDF -->
+                    <template x-if="selectedBooking?.letter_slug">
+                        <a :href="`/bookings/${selectedBooking.letter_slug}/pdf/formulir-permohonan`" 
+                           target="_blank" 
+                           class="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 rounded-lg text-[11px] font-bold transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            <span>Lihat Formulir (PDF)</span>
+                        </a>
+                    </template>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-500 font-medium">Tipe Peminjaman:</span>
-                    <span class="font-bold uppercase text-indigo-600" x-text="selectedBooking?.vehicle_type || '-'"></span>
+
+                <div class="space-y-1.5 pt-0.5">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 font-medium">Pemohon:</span>
+                        <span class="font-bold text-gray-900" x-text="selectedBooking?.user?.name || '-'"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 font-medium">Tipe Peminjaman:</span>
+                        <span class="font-bold uppercase text-indigo-600" x-text="selectedBooking?.vehicle_type || '-'"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 font-medium">Tujuan:</span>
+                        <span class="font-bold text-gray-900" x-text="selectedBooking?.destination || '-'"></span>
+                    </div>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-500 font-medium">Tujuan:</span>
-                    <span class="font-bold text-gray-900" x-text="selectedBooking?.destination || '-'"></span>
-                </div>
+
                 <template x-if="selectedBooking?.vehicle_requirements">
-                    <div class="pt-1 border-t border-gray-200 text-amber-800">
+                    <div class="pt-1.5 border-t border-gray-200 text-amber-800">
                         <span class="font-bold">Kebutuhan Khusus:</span>
                         <p class="italic text-[11px]" x-text="selectedBooking.vehicle_requirements"></p>
                     </div>

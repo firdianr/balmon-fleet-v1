@@ -24,6 +24,7 @@
                 </h3>
                 <p class="text-xs text-cyan-100 font-mono mt-0.5" x-text="selectedBooking ? 'No. Surat: ' + selectedBooking.letter_number : ''"></p>
             </div>
+
             <button type="button" @click="showVerifyReturnModal = false" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"/>
@@ -43,6 +44,39 @@
             <!-- INPUT HIDDEN: SNAPSHOT ITEMS CHECKLIST (JSON) & TANDA TANGAN -->
             <input type="hidden" name="items" :value="JSON.stringify(verifyReturnForm.items)">
             <input type="hidden" name="signature" x-model="verifyReturnForm.signatureData">
+
+            {{-- 0. CARD LAYANAN AKSES DOKUMEN FORMULIR PENGEMBALIAN (PDF) --}}
+            <template x-if="selectedBooking?.letter_slug">
+                <div class="p-3 bg-gradient-to-r from-slate-50 to-cyan-50/40 rounded-xl border border-cyan-100 flex items-center justify-between gap-3 shadow-2xs">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-700 flex items-center justify-center shrink-0">
+                            {{-- Icon Dokumen / Berkas PDF --}}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="font-bold text-gray-800 text-xs block">Formulir Pengembalian</span>
+                            <span class="text-[10px] text-gray-500 block">Dokumen pengesahan fisik pengembalian armada</span>
+                        </div>
+                    </div>
+
+                    <a :href="`/bookings/${selectedBooking.letter_slug}/pdf/formulir-pengembalian`" 
+                       target="_blank" 
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold transition shadow-xs shrink-0">
+                        {{-- Icon Mata / View PDF --}}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <span>Lihat Dokumen</span>
+                    </a>
+                </div>
+            </template>
 
             {{-- 1. PRATINJAU BBM & SPEEDOMETER DRIVER --}}
             <div class="bg-cyan-50/60 p-3.5 rounded-xl border border-cyan-200 space-y-2">
@@ -80,6 +114,40 @@
                     </div>
                 </template>
             </div>
+
+            {{-- 1.5 PRATINJAU CATATAN & FOTO KENDALA/KERUSAKAN DRIVER JIKA ADA --}}
+            <template x-if="selectedBooking?.log?.condition_notes?.end || (selectedBooking?.log?.condition_photos?.end && selectedBooking.log.condition_photos.end.length > 0)">
+                <div class="p-3 bg-rose-50/90 rounded-xl border border-rose-200 text-rose-900 text-xs space-y-2">
+                    <div class="font-bold flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-rose-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        <span>Catatan & Foto Kendala Kepulangan (Dari Driver/Pemohon):</span>
+                    </div>
+
+                    {{-- Teks Catatan Insiden --}}
+                    <template x-if="selectedBooking?.log?.condition_notes?.end">
+                        <p class="pl-5 italic leading-relaxed font-medium text-rose-950" x-text="selectedBooking?.log?.condition_notes?.end"></p>
+                    </template>
+
+                    {{-- Preview Gallery Foto Kendala Kepulangan --}}
+                    <template x-if="selectedBooking?.log?.condition_photos?.end && selectedBooking.log.condition_photos.end.length > 0">
+                        <div class="pt-1">
+                            <span class="block text-[10px] font-bold text-rose-800 mb-1">Foto Kerusakan / Insiden:</span>
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="(photoPath, idx) in selectedBooking.log.condition_photos.end" :key="idx">
+                                    <a :href="`/storage/${photoPath}`" target="_blank" class="group relative rounded-lg overflow-hidden border border-rose-300 bg-white shadow-xs">
+                                        <img :src="`/storage/${photoPath}`" class="h-20 w-20 object-cover group-hover:scale-105 transition duration-150" alt="Foto Insiden Kepulangan">
+                                        <span class="absolute bottom-0.5 right-0.5 bg-rose-900/75 text-white text-[8px] px-1 rounded backdrop-blur-xs">↗</span>
+                                    </a>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
 
             {{-- 2. EDITABLE CHECKLIST DINAMIS OLEH ADMIN LAPANGAN --}}
             <div class="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">

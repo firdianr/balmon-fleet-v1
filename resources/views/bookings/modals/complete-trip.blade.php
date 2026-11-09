@@ -27,65 +27,16 @@
             </button>
         </div>
 
-        <form x-ref="completeTripFormElement"
-              :action="`/bookings/${completeTripForm.letter_slug}/complete-trip`" 
+        <form :action="`/bookings/${completeTripForm.letter_slug}/complete-trip`" 
               method="POST" 
               enctype="multipart/form-data" 
-              @submit.prevent="submitCompleteTripForm()"
-              class="p-6 overflow-y-auto space-y-1 text-xs flex-1">
+              class="p-6 overflow-y-auto space-y-3 text-xs flex-1">
             @csrf
             @method('PATCH')
 
-            <!-- INPUT HIDDEN: SNAPSHOT ITEMS CHECKLIST, TANDA TANGAN & HAS INCIDENT -->
+            <!-- INPUT HIDDEN DATAS -->
             <input type="hidden" name="items" :value="JSON.stringify(completeTripForm.items)">
-            <input type="hidden" name="signature" x-model="completeTripForm.signatureData">
             <input type="hidden" name="has_incident" :value="completeTripForm.hasIncident ? 'true' : 'false'">
-
-            {{-- DOKUMEN SURAT TUGAS SUSULAN (KHUSUS PEMINJAMAN NOTA DINAS) --}}
-            <template x-if="selectedBooking?.letter_type === 'nota_dinas'">
-                <div class="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3">
-                    <div class="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10 9 9 9 8 9"/>
-                        </svg>
-                        <span>Kelengkapan Surat Tugas (Pengembalian Nota Dinas)</span>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div class="space-y-1">
-                            <label class="block font-bold text-gray-700 text-xs">
-                                Nomor Surat Tugas <span class="text-rose-500">*</span>
-                            </label>
-                            <input type="text" 
-                                name="return_letter_number" 
-                                x-model="completeTripForm.return_letter_number"
-                                :required="selectedBooking?.letter_type === 'nota_dinas'"
-                                placeholder="Contoh: 510/Balmon.33/KP.01.06/09/2026"
-                                class="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs font-medium focus:ring-amber-500 focus:border-amber-500">
-                        </div>
-
-                        <div class="space-y-1">
-                            <label class="block font-bold text-gray-700 text-xs">
-                                File Surat Tugas (PDF) <span class="text-rose-500">*</span>
-                            </label>
-                            
-                            <input type="file" 
-                                name="return_letter_file" 
-                                accept="application/pdf"
-                                :required="selectedBooking?.letter_type === 'nota_dinas'"
-                                class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200 transition cursor-pointer">
-                            
-                            <p class="text-[11px] text-gray-400">
-                                * Format: PDF saja (Maksimal 5 MB)
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </template>
 
             {{-- INDIKATOR BBM & FOTO PENGEMBALIAN --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-purple-50/50 rounded-xl border border-purple-100">
@@ -147,11 +98,11 @@
 
             {{-- KHUSUS MULTI-DAY: SYARAT CUCI MOBIL --}}
             <template x-if="completeTripForm.is_multi_day">
-                <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
+                <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-xl space-y-3" x-data="{ washPhotoPreview: null }">
                     <div class="flex items-center justify-between">
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" name="is_washed" value="1" required x-model="completeTripForm.is_washed"
-                                   class="rounded border-amber-400 text-amber-600 focus:ring-amber-500">
+                            <input type="checkbox" name="is_washed" value="1" :required="completeTripForm.is_multi_day" x-model="completeTripForm.is_washed"
+                                class="rounded border-amber-400 text-amber-600 focus:ring-amber-500">
                             <span class="text-xs font-bold text-amber-950 flex items-center gap-1.5">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
@@ -163,10 +114,45 @@
                     <p class="text-[11px] text-amber-800 leading-relaxed">
                         Perjalanan ini berlangsung lebih dari 1 hari. Pengemudi/Pemohon wajib mengembalikan kendaraan dalam kondisi bersih (luar & dalam).
                     </p>
-                    <div class="space-y-1">
-                        <label class="block text-[11px] font-bold text-amber-900">Foto Nota / Bukti Cuci Mobil <span class="text-rose-500">*</span></label>
-                        <input type="file" name="wash_receipt_photo" accept="image/*" required
-                               class="w-full text-xs text-amber-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200 transition cursor-pointer">
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between items-center">
+                            <label class="block text-[11px] font-bold text-amber-900">
+                                Foto Nota / Bukti Cuci Mobil <span class="text-rose-500">*</span>
+                            </label>
+                            <span class="text-[10px] text-amber-700 font-medium">* Format: JPG, PNG, WEBP (Maksimal 5 MB)</span>
+                        </div>
+                        
+                        <input type="file" 
+                            name="wash_receipt_photo" 
+                            accept="image/jpeg,image/png,image/jpg,image/webp" 
+                            :required="completeTripForm.is_multi_day"
+                            @change="
+                                const file = $event.target.files[0];
+                                if (file) {
+                                    if (file.size > 5 * 1024 * 1024) {
+                                        alert('Ukuran file foto melebihi 5 MB. Harap pilih foto yang lebih kecil.');
+                                        $event.target.value = '';
+                                        washPhotoPreview = null;
+                                        return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = (e) => { washPhotoPreview = e.target.result; };
+                                    reader.readAsDataURL(file);
+                                } else {
+                                    washPhotoPreview = null;
+                                }
+                            "
+                            class="w-full text-xs text-amber-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200 transition cursor-pointer">
+                        
+                        <!-- LIVE PREVIEW IMAGE -->
+                        <template x-if="washPhotoPreview">
+                            <div class="mt-2 relative inline-block">
+                                <span class="block text-[10px] font-semibold text-gray-500 mb-1">Preview Bukti Cuci:</span>
+                                <div class="relative rounded-lg overflow-hidden border border-amber-300 shadow-xs max-w-xs">
+                                    <img :src="washPhotoPreview" class="h-32 w-auto object-cover rounded-lg" alt="Preview Bukti Cuci">
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </template>
@@ -236,8 +222,27 @@
                                 class="w-full px-3 py-2 bg-white border border-rose-300 rounded-xl text-xs font-medium focus:ring-rose-500 focus:border-rose-500"></textarea>
                     </div>
 
-                    <!-- DENGAN COMPONENT ALPINE PHOTO MANAGER PERBAIKAN -->
-                    <div class="space-y-2" x-data="completeTripPhotoManager()">
+                    <div class="space-y-2" x-data="{
+                        photos: [],
+                        handleFileChange(event) {
+                            const files = Array.from(event.target.files);
+                            this.photos = [];
+                            files.forEach(file => {
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                    this.photos.push({ file: file, url: e.target.result });
+                                };
+                                reader.readAsDataURL(file);
+                            });
+                        },
+                        removePhoto(index) {
+                            this.photos.splice(index, 1);
+                            if (this.photos.length === 0) {
+                                const input = document.getElementById('complete_condition_photos_input');
+                                if (input) input.value = '';
+                            }
+                        }
+                    }">
                         <label class="block font-bold text-rose-900">
                             Foto Bukti Kerusakan / Insiden <span class="text-rose-600">*</span>
                         </label>
@@ -276,41 +281,6 @@
                 </div>
             </div>
 
-            <!-- SEKSI TANDA TANGAN PEMOHON / DRIVER -->
-            <div class="space-y-1.5 pt-2 border-t border-purple-100 shrink-0">
-                <div class="flex items-center justify-between gap-2 mb-2">
-                    <label class="text-xs font-bold text-purple-950 flex items-center gap-1 leading-snug">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-purple-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 20h9"/>
-                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                        </svg>
-                        <span>Tanda Tangan Pengesahan Pengembalian (Formulir & BAST)</span> 
-                        <span class="text-rose-500">*</span>
-                    </label>
-
-                    <button type="button" 
-                            @click="clearCompleteSignature()" 
-                            class="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shrink-0 shadow-2xs cursor-pointer">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 6h18"/>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                        </svg>
-                        <span>Bersihkan</span>
-                    </button>
-                </div>
-
-                <div class="border-2 border-dashed border-gray-300 rounded-xl bg-white p-1 relative">
-                    <canvas x-ref="completeSignatureCanvas" 
-                            style="mix-blend-mode: normal;"
-                            class="w-full h-36 bg-white rounded-lg cursor-pointer touch-none block"></canvas>
-                </div>
-
-                <template x-if="completeTripForm.signatureError">
-                    <p class="text-[11px] font-bold text-rose-600 mt-1" x-text="completeTripForm.signatureError"></p>
-                </template>
-            </div>
-
             <!-- TOMBOL AKSI MODAL -->
             <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2 shrink-0">
                 <button type="button" @click="showCompleteModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">
@@ -328,49 +298,3 @@
 
     </div>
 </div>
-
-<script>
-    function completeTripPhotoManager() {
-        return {
-            photos: [],
-            maxFiles: 5,
-            handleFileChange(event) {
-                const files = Array.from(event.target.files);
-                const remainingSlots = this.maxFiles - this.photos.length;
-                
-                if (files.length > remainingSlots) {
-                    alert(`Maksimal hanya dapat mengunggah ${this.maxFiles} foto.`);
-                }
-
-                const selectedFiles = files.slice(0, remainingSlots);
-
-                selectedFiles.forEach(file => {
-                    if (file.type.startsWith('image/')) {
-                        this.photos.push({
-                            file: file,
-                            url: URL.createObjectURL(file)
-                        });
-                    }
-                });
-
-                this.syncFileInput();
-            },
-            removePhoto(index) {
-                URL.revokeObjectURL(this.photos[index].url);
-                this.photos.splice(index, 1);
-                this.syncFileInput();
-            },
-            syncFileInput() {
-                const input = document.getElementById('complete_condition_photos_input');
-                if (!input) return;
-
-                const dataTransfer = new DataTransfer();
-                this.photos.forEach(item => {
-                    dataTransfer.items.add(item.file);
-                });
-                
-                input.files = dataTransfer.files;
-            }
-        }
-    }
-</script>

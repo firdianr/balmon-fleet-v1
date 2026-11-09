@@ -44,7 +44,7 @@ return new class extends Migration
             $table->string('destination');
             $table->text('purpose');
             $table->json('participants')->nullable(); 
-            $table->enum('status', ['pending', 'waiting', 'approved', 'rejected', 'on_trip', 'returned', 'checked', 'completed', 'canceled'])->default('pending');
+            $table->enum('status', ['pending', 'waiting', 'approved', 'rejected', 'trip_started', 'on_trip', 'trip_completed', 'returned', 'checked', 'completed', 'canceled'])->default('pending');
             $table->text('admin_note')->nullable();
 
             // Audit Trail Alur Verifikasi

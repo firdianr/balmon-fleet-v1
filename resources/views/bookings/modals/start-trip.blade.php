@@ -35,7 +35,7 @@
             @csrf
             @method('PATCH')
 
-            <!-- INPUT HIDDEN: SNAPSHOT ITEMS CHECKLIST & HAS INCIDENT -->
+            <!-- INPUT HIDDEN -->
             <input type="hidden" name="items" :value="JSON.stringify(startTripForm.items)">
             <input type="hidden" name="has_incident" :value="startTripForm.hasIncident ? 'true' : 'false'">
 
@@ -158,8 +158,27 @@
                             class="w-full px-3 py-2 bg-white border border-rose-300 rounded-xl text-xs font-medium focus:ring-rose-500 focus:border-rose-500"></textarea>
                 </div>
 
-                <!-- DENGAN COMPONENT ALPINE PHOTO MANAGER PERBAIKAN -->
-                <div class="space-y-2" x-data="startTripPhotoManager()">
+                <div class="space-y-2" x-data="{
+                    photos: [],
+                    handleFileChange(event) {
+                        const files = Array.from(event.target.files);
+                        this.photos = [];
+                        files.forEach(file => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                this.photos.push({ file: file, url: e.target.result });
+                            };
+                            reader.readAsDataURL(file);
+                        });
+                    },
+                    removePhoto(index) {
+                        this.photos.splice(index, 1);
+                        if (this.photos.length === 0) {
+                            const input = document.getElementById('start_condition_photos_input');
+                            if (input) input.value = '';
+                        }
+                    }
+                }">
                     <label class="block font-bold text-rose-900">
                         Foto Bukti Kendala / Kerusakan Awal <span class="text-rose-600">*</span>
                     </label>
@@ -207,56 +226,10 @@
                         <line x1="22" y1="2" x2="11" y2="13"/>
                         <polygon points="22 2 15 22 11 13 2 9 22 2"/>
                     </svg>
-                    <span>Mulai Perjalanan</span>
+                    <span>Simpan Log Keberangkatan</span>
                 </button>
             </div>
         </form>
 
     </div>
 </div>
-
-<script>
-    function startTripPhotoManager() {
-        return {
-            photos: [],
-            maxFiles: 5,
-            handleFileChange(event) {
-                const files = Array.from(event.target.files);
-                const remainingSlots = this.maxFiles - this.photos.length;
-                
-                if (files.length > remainingSlots) {
-                    alert(`Maksimal hanya dapat mengunggah ${this.maxFiles} foto.`);
-                }
-
-                const selectedFiles = files.slice(0, remainingSlots);
-
-                selectedFiles.forEach(file => {
-                    if (file.type.startsWith('image/')) {
-                        this.photos.push({
-                            file: file,
-                            url: URL.createObjectURL(file)
-                        });
-                    }
-                });
-
-                this.syncFileInput();
-            },
-            removePhoto(index) {
-                URL.revokeObjectURL(this.photos[index].url);
-                this.photos.splice(index, 1);
-                this.syncFileInput();
-            },
-            syncFileInput() {
-                const input = document.getElementById('start_condition_photos_input');
-                if (!input) return;
-
-                const dataTransfer = new DataTransfer();
-                this.photos.forEach(item => {
-                    dataTransfer.items.add(item.file);
-                });
-                
-                input.files = dataTransfer.files;
-            }
-        }
-    }
-</script>

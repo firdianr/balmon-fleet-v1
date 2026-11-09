@@ -153,7 +153,7 @@
                                     
                                     <template x-if="chk.is_washed">
                                         <span class="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                            Dikembalikan Bersih
+                                            Kondisi Bersih
                                         </span>
                                     </template>
                                 </div>
