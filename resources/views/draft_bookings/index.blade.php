@@ -36,6 +36,7 @@
         drivers: {{ Illuminate\Support\Js::from($drivers) }},
         activeBookings: {{ Illuminate\Support\Js::from($activeBookings ?? []) }},
         drafts: {{ Illuminate\Support\Js::from($drafts->items() ?? $drafts ?? []) }},
+        attendances: {{ Illuminate\Support\Js::from($attendances ?? []) }},
 
         // Variable Penampung Hasil Filter
         availableVehicles: [],
@@ -109,11 +110,11 @@
                 return !isDrafted;
             });
 
-            // 2. FILTER DRIVER READY
+            // 2. FILTER DRIVER READY (Mencakup Booking Aktif, Draft Lain, dan Ketidakhadiran/Attendance)
             this.availableDrivers = (this.drivers || []).filter(d => {
                 if (d.role !== 'driver') return false;
 
-                // Cek Bentrok Driver di Peminjaman Aktif
+                // A. Cek Bentrok Driver di Peminjaman Aktif
                 const isBooked = (this.activeBookings || []).some(b => {
                     if (b.draft_booking_id && String(b.draft_booking_id) === String(draft.id)) return false;
                     if (!b.driver_id || String(b.driver_id) !== String(d.id)) return false;
@@ -122,14 +123,25 @@
 
                 if (isBooked) return false;
 
-                // Cek Bentrok Driver di Draft Lain
+                // B. Cek Bentrok Driver di Draft Lain
                 const isDrafted = (this.drafts || []).some(dr => {
                     if (String(dr.id) === String(draft.id)) return false;
                     if (!dr.driver_id || String(dr.driver_id) !== String(d.id)) return false;
                     return this.isOverlapping(reqStart, reqEnd, dr.start_date, dr.end_date);
                 });
 
-                return !isDrafted;
+                if (isDrafted) return false;
+
+                // C. Cek Bentrok Driver di Ketidakhadiran (Cuti/Izin/Sakit/Service) yang Sudah Disetujui
+                const isAbsent = (this.attendances || []).some(att => {
+                    const driverIdInAttendance = att.driver_id || att.user_id; // Menyesuaikan nama kolom ID Driver
+                    if (!driverIdInAttendance || String(driverIdInAttendance) !== String(d.id)) return false;
+                    
+                    // Cek apakah rentang tanggal permohonan bentrok dengan masa cuti/izin driver
+                    return this.isOverlapping(reqStart, reqEnd, att.start_date, att.end_date);
+                });
+
+                return !isAbsent;
             });
 
             this.reviewModal = true;

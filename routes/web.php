@@ -36,8 +36,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
     Route::get('/drivers/calendar', [DriverCalendarController::class, 'index'])->name('drivers.calendar');
+
+    // CRUD & Approval Ketidakhadiran Driver
     Route::post('/drivers/attendance', [DriverCalendarController::class, 'storeAttendance'])->name('drivers.attendance.store');
     Route::put('/drivers/attendance/{id}', [DriverCalendarController::class, 'updateAttendance'])->name('drivers.attendance.update');
+    Route::patch('/drivers/attendance/{id}/approve', [DriverCalendarController::class, 'approveAttendance'])->name('drivers.attendance.approve');
     Route::delete('/drivers/attendance/{id}', [DriverCalendarController::class, 'destroyAttendance'])->name('drivers.attendance.destroy');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

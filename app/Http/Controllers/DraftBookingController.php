@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DraftBooking;
+use App\Models\DriverAttendance;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Services\WhatsAppService;
@@ -40,7 +41,11 @@ class DraftBookingController extends Controller
             ->orderBy('name', 'asc')
             ->get();
 
-        return view('draft_bookings.index', compact('drafts', 'vehicles', 'drivers'));
+        $attendances = DriverAttendance::where('process_status', 'approved')
+            ->where('end_date', '>=', Carbon::today())
+            ->get(['id', 'user_id', 'start_date', 'end_date', 'status']); // Select kolom yang dibutuhkan saja
+
+        return view('draft_bookings.index', compact('drafts', 'vehicles', 'drivers', 'attendances'));
     }
 
     /**

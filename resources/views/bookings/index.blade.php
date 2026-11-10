@@ -22,6 +22,7 @@
             vehicles: {{ Illuminate\Support\Js::from($availableVehicles) }},
             drivers: {{ Illuminate\Support\Js::from($availableDrivers) }},
             activeBookings: {{ Illuminate\Support\Js::from($activeBookings) }},
+            attendances: {{ Illuminate\Support\Js::from($attendances) }},
             showReviewModal: false,
             reviewForm: {
                 action: 'approve',
@@ -70,28 +71,45 @@
                 });
             },
 
-            // HELPER: Filter Driver yang Tidak Bentrok
+            // HELPER: Filter Driver yang Tidak Bentrok (Booking Aktif & Ketidakhadiran/Cuti)
             getAvailableDrivers() {
-                if (!this.selectedBooking) return this.drivers;
+                if (!this.selectedBooking) return { primaryDrivers: this.drivers, participants: [] };
 
                 const reqStart = new Date(this.selectedBooking.start_date);
                 const reqEnd   = new Date(this.selectedBooking.end_date);
                 const currentBookingId = this.selectedBooking.id;
 
-                const freeDrivers = this.drivers.filter(driver => {
+                const freeDrivers = (this.drivers || []).filter(driver => {
                     if (driver.role !== 'driver') return false;
 
-                    return !this.activeBookings.some(active => {
-                        if (active.id === currentBookingId) return false;
-                        if (active.driver_id !== driver.id) return false;
+                    // A. Cek Bentrok di Peminjaman Aktif (Booking Resmi)
+                    const isBooked = (this.activeBookings || []).some(active => {
+                        if (String(active.id) === String(currentBookingId)) return false;
+                        if (!active.driver_id || String(active.driver_id) !== String(driver.id)) return false;
 
                         const actStart = new Date(active.start_date);
                         const actEnd   = new Date(active.end_date);
 
                         return (reqStart <= actEnd && reqEnd >= actStart);
                     });
+
+                    if (isBooked) return false;
+
+                    // B. Cek Bentrok di Ketidakhadiran Driver (Cuti/Izin/Sakit/Service Approved)
+                    const isAbsent = (this.attendances || []).some(att => {
+                        if (!att.driver_id || String(att.driver_id) !== String(driver.id)) return false;
+
+                        const attStart = new Date(att.start_date);
+                        const attEnd   = new Date(att.end_date);
+
+                        return (reqStart <= attEnd && reqEnd >= attStart);
+                    });
+
+                    return !isAbsent;
                 });
+
                 const participantsList = this.selectedBooking.participants_users || [];
+                
                 return {
                     primaryDrivers: freeDrivers,
                     participants: participantsList

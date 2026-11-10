@@ -8,12 +8,14 @@ use App\Mail\BookingCompletedMail;
 use App\Models\Booking;
 use App\Models\BookingSignature;
 use App\Models\DraftBooking;
+use App\Models\DriverAttendance;
 use App\Models\MasterChecklist;
 use App\Models\TripChecklist;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleLog;
 use App\Services\WhatsAppService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -70,7 +72,6 @@ class BookingController extends Controller
         $masterChecklists = MasterChecklist::active()
             ->get(['id', 'name', 'category', 'sort_order'])
             ->toArray();
-        // dd($masterChecklists);
 
         // 5. Dataset Jadwal Booking Aktif (Untuk Filter Realtime Alpine.js)
         $activeBookings = Booking::whereIn('status', ['waiting', 'approved', 'on_trip', 'returned', 'checked'])
@@ -84,6 +85,20 @@ class BookingController extends Controller
                     'driver_id'  => $b->driver_id,
                     'start_date' => $b->start_date->format('Y-m-d H:i:s'),
                     'end_date'   => $b->end_date->format('Y-m-d H:i:s'),
+                ];
+            });
+
+        // 5.5 Dataset Ketidakhadiran Driver (Terbuka/Aktif & Approved)
+        $attendances = DriverAttendance::where('process_status', 'approved')
+            ->where('end_date', '>=', Carbon::today())
+            ->get(['id', 'user_id', 'start_date', 'end_date', 'status'])
+            ->map(function ($att) {
+                return [
+                    'id'         => $att->id,
+                    'driver_id'  => $att->user_id,
+                    'start_date' => $att->start_date->format('Y-m-d H:i:s'),
+                    'end_date'   => $att->end_date->format('Y-m-d H:i:s'),
+                    'status'     => $att->status,
                 ];
             });
 
@@ -105,6 +120,7 @@ class BookingController extends Controller
             'primaryDrivers',
             'nonDrivers',
             'activeBookings',
+            'attendances', // Pass data ketidakhadiran ke View
             'masterChecklists'
         ));
     }
