@@ -79,17 +79,17 @@
                         <svg class="w-4 h-4 text-amber-600 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                         <span>Pengajuan Cuti / Izin Driver Menunggu Approval ({{ count($pendingAttendances) }})</span>
                     </h3>
-                    <a href="{{ route('calendar.drivers') }}" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">Buka Kalender Driver &rarr;</a>
+                    <a href="{{ route('drivers.calendar') }}" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">Buka Kalender Driver &rarr;</a>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     @foreach($pendingAttendances as $att)
                         <div class="p-3 bg-amber-50/60 border border-amber-200 rounded-xl flex items-center justify-between text-xs">
                             <div>
-                                <span class="font-bold text-gray-900 block">{{ $att->user?->name }}</span>
+                                <span class="font-bold text-gray-900 block">{{ $att->driver?->name }}</span>
                                 <span class="text-amber-800 font-bold uppercase text-[10px]">{{ $att->status }}</span>
-                                <span class="text-gray-500 text-[10px] block mt-0.5">📅 {{ \Carbon\Carbon::parse($att->start_date)->format('d/m/Y') }} s/d {{ \Carbon\Carbon::parse($att->end_date)->format('d/m/Y') }}</span>
+                                <span class="text-gray-500 text-[10px] block mt-0.5"> {{ \Carbon\Carbon::parse($att->start_date)->format('d/m/Y') }} s/d {{ \Carbon\Carbon::parse($att->end_date)->format('d/m/Y') }}</span>
                             </div>
-                            <a href="{{ route('calendar.drivers') }}" class="px-3 py-1.5 bg-indigo-600 text-white font-bold text-[11px] rounded-lg hover:bg-indigo-700 transition">Tinjau</a>
+                            <a href="{{ route('drivers.calendar') }}" class="px-3 py-1.5 bg-indigo-600 text-white font-bold text-[11px] rounded-lg hover:bg-indigo-700 transition">Tinjau</a>
                         </div>
                     @endforeach
                 </div>

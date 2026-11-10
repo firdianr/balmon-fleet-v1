@@ -41,7 +41,7 @@ class DashboardController extends Controller
 
             $recentDrafts       = DraftBooking::with(['user', 'vehicle', 'driver'])->latest()->take(5)->get();
             $recentBookings     = Booking::with(['user', 'vehicle', 'driver'])->latest()->take(5)->get();
-            $pendingAttendances = DriverAttendance::where('process_status', 'pending')->with('user')->take(5)->get();
+            $pendingAttendances = DriverAttendance::where('process_status', 'pending')->with('driver')->take(5)->get();
 
             $viewName = $user->role === 'admin_app' ? 'dashboard.admin_app' : 'dashboard.admin_lap';
 
