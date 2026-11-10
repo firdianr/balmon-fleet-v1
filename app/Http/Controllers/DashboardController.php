@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Models\DraftBooking;
-use App\Models\Vehicle;
 use App\Models\DriverAttendance;
+use App\Models\Vehicle;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -21,31 +22,75 @@ class DashboardController extends Controller
         $activeTripsCount       = Booking::whereIn('status', ['approved', 'trip_started', 'on_trip', 'trip_completed'])->count();
 
         // ------------------------------------------------------------------
-        // ROLE 1 & 2: ADMIN APP & ADMIN LAPANGAN
+        // ROLE 1: ADMIN APP (Master Overview & Dynamic System Health)
         // ------------------------------------------------------------------
-        if (in_array($user->role, ['admin_app', 'admin_lap'])) {
-            // 1. Permohonan Draft yang butuh alokasi unit/driver (Layer 1)
-            $pendingDraftsCount = DraftBooking::where('status', 'draft')->count();
-            
-            // 2. Peminjaman Resmi yang BERSATU PENDING -> Butuh alokasi unit/driver oleh Admin Lapangan (Layer 2)
-            $pendingBookingsCount = Booking::where('status', 'pending')->count();
-
-            // 3. Peminjaman Resmi yang BERSTATU WAITING -> Butuh TTD Approver
-            $pendingApprovalsCount = Booking::where('status', 'waiting')->count();
-
-            // 4. Armada Kembali yang BERSTATU RETURNED -> Butuh Physical Check Garasi
+        if ($user->role === 'admin_app') {
+            $pendingDraftsCount              = DraftBooking::where('status', 'draft')->count();
+            $pendingBookingsCount            = Booking::where('status', 'pending')->count();
+            $pendingApprovalsCount           = Booking::where('status', 'waiting')->count();
             $pendingReturnVerificationsCount = Booking::where('status', 'returned')->count();
-
-            // 5. Permohonan Cuti Driver Pending
-            $pendingAttendancesCount = DriverAttendance::where('process_status', 'pending')->count();
+            $pendingAttendancesCount         = DriverAttendance::where('process_status', 'pending')->count();
 
             $recentDrafts       = DraftBooking::with(['user', 'vehicle', 'driver'])->latest()->take(5)->get();
             $recentBookings     = Booking::with(['user', 'vehicle', 'driver'])->latest()->take(5)->get();
             $pendingAttendances = DriverAttendance::where('process_status', 'pending')->with('driver')->take(5)->get();
 
-            $viewName = $user->role === 'admin_app' ? 'dashboard.admin_app' : 'dashboard.admin_lap';
+            // Dynamic System Health Check
+            $dbConnected = false;
+            try {
+                DB::connection()->getPdo();
+                $dbConnected = true;
+            } catch (\Exception $e) {
+                $dbConnected = false;
+            }
 
-            return view($viewName, compact(
+            $waConnected = false;
+            try {
+                $waConnected = !empty(config('services.whatsapp.api_key', env('PUSHOVER_TOKEN', true)));
+            } catch (\Exception $e) {
+                $waConnected = false;
+            }
+
+            $storageWritable = is_writable(storage_path('app/public'));
+
+            $systemHealth = [
+                'database' => $dbConnected,
+                'whatsapp' => $waConnected,
+                'storage'  => $storageWritable,
+                'all_good' => $dbConnected && $waConnected && $storageWritable,
+            ];
+
+            return view('dashboard.admin_app', compact(
+                'totalVehiclesCount',
+                'availableVehiclesCount',
+                'activeTripsCount',
+                'pendingDraftsCount',
+                'pendingBookingsCount',
+                'pendingApprovalsCount',
+                'pendingReturnVerificationsCount',
+                'pendingAttendancesCount',
+                'recentDrafts',
+                'recentBookings',
+                'pendingAttendances',
+                'systemHealth'
+            ));
+        }
+
+        // ------------------------------------------------------------------
+        // ROLE 2: ADMIN LAPANGAN (Operational, Allocation & Garage Check)
+        // ------------------------------------------------------------------
+        if ($user->role === 'admin_lap') {
+            $pendingDraftsCount              = DraftBooking::where('status', 'draft')->count();
+            $pendingBookingsCount            = Booking::where('status', 'pending')->count();
+            $pendingApprovalsCount           = Booking::where('status', 'waiting')->count();
+            $pendingReturnVerificationsCount = Booking::where('status', 'returned')->count();
+            $pendingAttendancesCount         = DriverAttendance::where('process_status', 'pending')->count();
+
+            $recentDrafts       = DraftBooking::with(['user', 'vehicle', 'driver'])->latest()->take(5)->get();
+            $recentBookings     = Booking::with(['user', 'vehicle', 'driver'])->latest()->take(5)->get();
+            $pendingAttendances = DriverAttendance::where('process_status', 'pending')->with('driver')->take(5)->get();
+
+            return view('dashboard.admin_lap', compact(
                 'totalVehiclesCount',
                 'availableVehiclesCount',
                 'activeTripsCount',

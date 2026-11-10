@@ -3,7 +3,7 @@
     <x-slot name="header">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-                <h2 class="font-bold text-xl text-gray-800 leading-tight">Dashboard Kontrol Garasi & Field</h2>
+                <h2 class="font-bold text-xl text-gray-800 leading-tight">Dashboard Pengelolaan Pengajuan dan Peminjaman</h2>
                 <p class="text-xs text-gray-500 mt-0.5">Pusat alokasi armada/driver, verifikasi fisik garasi, dan persetujuan izin driver.</p>
             </div>
             <div class="text-xs text-gray-500 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-2xs font-mono flex items-center gap-1.5">
