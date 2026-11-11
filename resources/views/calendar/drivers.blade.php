@@ -73,12 +73,16 @@
                             <span>Driver: {{ $currentUser->name }}</span>
                         </span>
                     @else
-                        <select x-model="selectedDriverFilter" class="bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 w-full md:w-56">
-                            <option value="">-- Seluruh Driver --</option>
-                            @foreach($drivers as $drv)
-                                <option value="{{ $drv->id }}">{{ $drv->name }}</option>
-                            @endforeach
-                        </select>
+                        <select id="driver_filter" 
+                            name="driver_filter"
+                            aria-label="Filter Driver"
+                            x-model="selectedDriverFilter" 
+                            class="bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 w-full md:w-56">
+                        <option value="">-- Seluruh Driver --</option>
+                        @foreach($drivers as $drv)
+                            <option value="{{ $drv->id }}">{{ $drv->name }}</option>
+                        @endforeach
+                    </select>
                     @endif
 
                     <button type="button" @click="goToToday()" class="px-4 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-100 transition flex items-center gap-1.5 shrink-0">

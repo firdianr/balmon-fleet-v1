@@ -1,4 +1,4 @@
-<!-- MODAL APPROVER DENGAN PRATINJAU CHECKLIST DETIL, FOTO BUKTI & SIGNATURE PAD -->
+<!-- MODAL APPROVER DENGAN PRATINJAU CHECKLIST DETIL (COLLAPSIBLE), FOTO BUKTI & SIGNATURE PAD -->
 <div x-show="showApproverModal" 
     class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 top-0"
     x-transition:enter="transition ease-out duration-200"
@@ -9,7 +9,9 @@
     x-transition:leave-end="opacity-0 scale-95"
     x-cloak>
 
-    <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-gray-100" @click.away="showApproverModal = false">
+    {{-- DIBERSIHKAN DARI x-data SEHINGGA CANVAS TTD DAPAT TERDETERMINASI KEMBALI --}}
+    <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-gray-100" 
+         @click.away="showApproverModal = false">
         
         <!-- HEADER MODAL -->
         <div class="px-6 py-4 text-white flex justify-between items-center shrink-0"
@@ -72,7 +74,7 @@
                 </div>
             </div>
 
-            <!-- 2. PRATINJAU BUKTI FOTO (SPEEDOMETER, CUCI MOBIL, KERUSAKAN) -->
+            <!-- 2. PRATINJAU BUKTI FOTO (SPEEDOMETER, CUCI MOBIL) -->
             <template x-if="selectedBooking?.log">
                 <div class="p-3.5 bg-cyan-50/60 border border-cyan-200 rounded-xl space-y-3">
                     <span class="text-[10px] font-bold text-cyan-800 uppercase tracking-wider block border-b border-cyan-200/80 pb-1 flex items-center gap-1.5">
@@ -126,10 +128,13 @@
                 </div>
             </template>
 
-            <!-- 3. RINCIAN COMPLETE ITEM CHECKLIST KENDARAAN (DINAMIS JSON) -->
+            <!-- 3. RINCIAN COMPLETE ITEM CHECKLIST KENDARAAN (FITUR COLLAPSIBLE TOGGLE) -->
             <template x-if="selectedBooking && selectedBooking.displayChecklists && selectedBooking.displayChecklists.length > 0">
                 <div class="space-y-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
-                    <h4 class="font-bold text-slate-800 text-xs flex items-center justify-between border-b border-slate-200 pb-1.5">
+                    <!-- HEADER COLLAPSIBLE TOGGLE -->
+                    <button type="button" 
+                            @click="showChecklistDetail = !showChecklistDetail" 
+                            class="w-full flex items-center justify-between font-bold text-slate-800 text-xs border-b border-slate-200 pb-1.5 focus:outline-hidden cursor-pointer hover:text-indigo-600 transition">
                         <span class="flex items-center gap-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 text-slate-700 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
@@ -138,9 +143,20 @@
                             </svg>
                             <span x-text="approverActionType === 'waiting' ? 'Detail Kondisi Fisik Terakhir Armada' : 'Rincian Kondisi Armada'"></span>
                         </span>
-                    </h4>
 
-                    <div class="space-y-3">
+                        <div class="flex items-center gap-1.5 text-[11px] text-indigo-600">
+                            <span x-text="showChecklistDetail ? 'Sembunyikan' : 'Tampilkan Detail'"></span>
+                            <svg xmlns="http://www.w3.org/2000/svg" 
+                                 class="w-4 h-4 fill-none stroke-current stroke-2 transition-transform duration-200" 
+                                 :class="showChecklistDetail ? 'rotate-180' : ''" 
+                                 viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        </div>
+                    </button>
+
+                    <!-- ISI COLLAPSIBLE DETAIL -->
+                    <div x-show="showChecklistDetail" x-collapse class="space-y-3 pt-1">
                         <template x-for="chk in selectedBooking.displayChecklists" :key="chk.id">
                             <div class="p-3 rounded-xl border bg-white space-y-3 shadow-2xs"
                                 :class="chk.type === 'start' ? 'border-emerald-200' : 'border-indigo-200'">
@@ -158,53 +174,85 @@
                                     </template>
                                 </div>
 
-                                <!-- KONDISI FISIK DINAMIS -->
+                                <!-- KONDISI FISIK DINAMIS + BADGE 'SUDAH DIPERBAIKI' -->
                                 <div class="space-y-1.5" x-show="chk.items && chk.items.some(i => i.category === 'condition')">
                                     <span class="font-bold text-gray-800 text-[11px] block border-b border-gray-100 pb-0.5">Kondisi Fisik Kendaraan:</span>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-gray-700 text-[11px]">
                                         <template x-for="item in (chk.items || []).filter(i => i.category === 'condition')" :key="item.id">
-                                            <div class="flex justify-between py-0.5 border-b border-gray-50">
+                                            <div class="flex justify-between items-center py-1 border-b border-gray-50">
                                                 <span x-text="item.name + ':'"></span>
-                                                <span class="font-bold" :class="item.is_checked ? 'text-emerald-600' : 'text-rose-600'" x-text="item.is_checked ? 'Baik / Normal' : 'Bermasalah'"></span>
+                                                <div class="flex items-center gap-1.5">
+                                                    <!-- JIKA FALSE TAPI MOBIL SUDAH AVAILABLE (SUDAH DIPERBAIKI) -->
+                                                    <template x-if="!item.is_checked && selectedBooking?.vehicle?.status === 'available'">
+                                                        <span class="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded">
+                                                            Sudah Diperbaiki
+                                                        </span>
+                                                    </template>
+                                                    
+                                                    <span class="font-bold" :class="item.is_checked ? 'text-emerald-600' : 'text-rose-600'" 
+                                                          x-text="item.is_checked ? 'Baik / Normal' : 'Bermasalah'"></span>
+                                                </div>
                                             </div>
                                         </template>
                                     </div>
                                 </div>
 
-                                <!-- KELENGKAPAN DINAS DINAMIS -->
+                                <!-- KELENGKAPAN DINAS DINAMIS + BADGE 'SUDAH DIPERBAIKI' -->
                                 <div class="space-y-1.5 pt-1" x-show="chk.items && chk.items.some(i => i.category === 'completeness')">
                                     <span class="font-bold text-gray-800 text-[11px] block border-b border-gray-100 pb-0.5">Kelengkapan Kendaraan Dinas:</span>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-gray-700 text-[11px]">
                                         <template x-for="item in (chk.items || []).filter(i => i.category === 'completeness')" :key="item.id">
-                                            <div class="flex justify-between py-0.5 border-b border-gray-50">
+                                            <div class="flex justify-between items-center py-1 border-b border-gray-50">
                                                 <span x-text="item.name + ':'"></span>
-                                                <span class="font-bold" :class="item.is_checked ? 'text-emerald-600' : 'text-rose-600'" x-text="item.is_checked ? 'Ada' : 'Tidak Ada'"></span>
+                                                <div class="flex items-center gap-1.5">
+                                                    <!-- JIKA FALSE TAPI MOBIL SUDAH AVAILABLE (SUDAH DIPERBAIKI) -->
+                                                    <template x-if="!item.is_checked && selectedBooking?.vehicle?.status === 'available'">
+                                                        <span class="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded">
+                                                            Sudah Diperbaiki
+                                                        </span>
+                                                    </template>
+
+                                                    <span class="font-bold" :class="item.is_checked ? 'text-emerald-600' : 'text-rose-600'" 
+                                                          x-text="item.is_checked ? 'Ada' : 'Tidak Ada'"></span>
+                                                </div>
                                             </div>
                                         </template>
                                     </div>
                                 </div>
 
-                                <!-- CATATAN KERUSAKAN TERMASUK FOTO DI DALAMNYA -->
+                                <!-- CATATAN KERUSAKAN (CONDITION NOTE) & FOTO INSIDEN -->
                                 <template x-if="chk.type === 'start' ? (selectedBooking.startNotes || selectedBooking.parsedStartPhotos.length > 0) : (selectedBooking.endNotes || selectedBooking.parsedEndPhotos.length > 0)">
                                     <div class="p-2.5 bg-rose-50 text-rose-800 rounded-lg border border-rose-200 text-[11px] space-y-2 mt-2">
-                                        <strong class="font-bold flex items-center gap-1 text-rose-900">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-rose-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                                                <line x1="12" y1="9" x2="12" y2="13"/>
-                                                <line x1="12" y1="17" x2="12.01" y2="17"/>
-                                            </svg>
-                                            <span>Catatan Kerusakan / Kendala:</span>
-                                        </strong>
+                                        <div class="flex items-center justify-between">
+                                            <strong class="font-bold flex items-center gap-1 text-rose-900">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-rose-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                                </svg>
+                                                <span>Catatan Kerusakan / Kendala:</span>
+                                            </strong>
 
-                                        {{-- TEKS CATATAN --}}
+                                            <!-- PEMBERITAHUAN JIKA FLEET SUDAH REPAIRED/AVAILABLE -->
+                                            <template x-if="selectedBooking?.vehicle?.status === 'available'">
+                                                <span class="text-[9px] font-bold px-2 py-0.5 bg-emerald-600 text-white rounded-full">
+                                                    Armada Sudah Diperbaiki
+                                                </span>
+                                            </template>
+                                        </div>
+
+                                        {{-- CONDITION NOTE (TEKS CATATAN DARI JSON CONDITION_NOTES) --}}
                                         <template x-if="chk.type === 'start' ? selectedBooking.startNotes : selectedBooking.endNotes">
-                                            <p x-text="chk.type === 'start' ? selectedBooking.startNotes : selectedBooking.endNotes" class="leading-relaxed font-medium text-rose-950"></p>
+                                            <div class="bg-white/70 p-2 rounded-md border border-rose-200/60">
+                                                <span class="text-[10px] text-gray-500 font-bold block mb-0.5">Catatan Fisik (Condition Note):</span>
+                                                <p x-text="chk.type === 'start' ? selectedBooking.startNotes : selectedBooking.endNotes" class="leading-relaxed font-bold text-rose-950"></p>
+                                            </div>
                                         </template>
 
-                                        {{-- FOTO INSIDEN DIPISAH DI MASING-MASING TAHAP --}}
+                                        {{-- CONDITION PHOTOS (BUKTI FOTO KERUSAKAN) --}}
                                         <template x-if="(chk.type === 'start' ? selectedBooking.parsedStartPhotos : selectedBooking.parsedEndPhotos).length > 0">
-                                            <div class="pt-1.5 border-t border-rose-200/60">
-                                                <span class="text-[10px] font-bold text-rose-800 block mb-1">Bukti Foto Insiden / Kerusakan:</span>
+                                            <div class="pt-1 border-t border-rose-200/60">
+                                                <span class="text-[10px] font-bold text-rose-800 block mb-1">Bukti Foto Insiden / Kerusakan (Condition Photos):</span>
                                                 <div class="flex flex-wrap gap-2">
                                                     <template x-for="(photo, index) in (chk.type === 'start' ? selectedBooking.parsedStartPhotos : selectedBooking.parsedEndPhotos)" :key="index">
                                                         <a :href="`/storage/${photo}`" target="_blank">
@@ -317,7 +365,7 @@
                 </div>
             </div>
 
-            <!-- ARENA TANDA TANGAN APPROVER (HANYA TAMPIL SAAT ACTION === 'APPROVE') -->
+            <!-- ARENA TANDA TANGAN APPROVER -->
             <div x-show="approverForm.action === 'approve'" class="space-y-1.5 pt-1">
                 <div class="flex items-center justify-between gap-2 mb-2">
                     <label class="text-xs font-bold text-gray-700 flex items-center gap-1 leading-snug">
@@ -341,7 +389,6 @@
                     </button>
                 </div>
 
-                {{-- Preview TTD Lama jika sudah pernah TTD --}}
                 <template x-if="approverForm.existingSignatureUrl">
                     <div class="mb-2 p-2 bg-indigo-50/50 border border-indigo-100 rounded-xl flex items-center justify-between gap-3">
                         <div class="flex items-center gap-2">

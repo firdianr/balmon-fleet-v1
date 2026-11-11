@@ -136,4 +136,43 @@
         </template>
     </div>
     </template>
+
+    <script>
+        // Jika kamu memasukkannya langsung ke dalam object Alpine.js (misal di x-data):
+        /*
+        getGoogleMapsUrl(destination) {
+            if (!destination) return '#';
+            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`;
+        },
+        getWaUrl(phone, text = '') {
+            if (!phone) return '#';
+            // Bersihkan karakter selain angka
+            let cleanedPhone = phone.toString().replace(/\D/g, '');
+            // Mengubah awalan '0' menjadi '62' (Format Indonesia)
+            if (cleanedPhone.startsWith('0')) {
+                cleanedPhone = '62' + cleanedPhone.slice(1);
+            }
+            const encodedText = text ? `?text=${encodeURIComponent(text)}` : '';
+            return `https://wa.me/${cleanedPhone}${encodedText}`;
+        }
+        */
+
+        // ATAU jika kamu ingin mendefinisikannya sebagai fungsi JavaScript Global:
+        function getGoogleMapsUrl(destination) {
+            if (!destination) return '#';
+            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`;
+        }
+
+        function getWaUrl(phone, text = '') {
+            if (!phone) return '#';
+            // Bersihkan karakter non-angka
+            let cleanedPhone = phone.toString().replace(/\D/g, '');
+            // Format otomatis dari 08xx ke 628xx
+            if (cleanedPhone.startsWith('0')) {
+                cleanedPhone = '62' + cleanedPhone.slice(1);
+            }
+            const encodedText = text ? `?text=${encodeURIComponent(text)}` : '';
+            return `https://wa.me/${cleanedPhone}${encodedText}`;
+        }
+    </script>
 </div>

@@ -134,67 +134,229 @@
             </div>
 
             <!-- Form Pilihan Kendaraan & Driver (Hanya tampil jika Disetujui) -->
-            <div x-show="reviewForm.action === 'approve'" class="space-y-3.5 pt-1">
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">
-                        Pilih Unit Armada Kendaraan <span class="text-red-500">*</span>
-                    </label>
-                    <select name="vehicle_id" x-model="reviewForm.vehicle_id" :required="reviewForm.action === 'approve'"
-                            class="block w-full rounded-xl border-gray-300 text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">-- Pilih Kendaraan Ready --</option>
-                        <template x-for="v in getAvailableVehicles()" :key="v.id">
-                            <option :value="v.id" x-text="`[${v.code}] ${v.brand} ${v.model} (${v.plate_number}) - [${(v.type || '').toUpperCase()}]`"></option>
+            <div x-show="reviewForm.action === 'approve'" class="space-y-5 pt-1">
+                
+                {{-- 1. PILIHAN ARMADA KENDARAAN READY --}}
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-bold text-gray-700">
+                            Pilih Unit Armada Kendaraan <span class="text-rose-500">*</span>
+                        </label>
+                    </div>
+
+                    {{-- INPUT HIDDEN UNTUK FORM & VALIDASI REQUIRED --}}
+                    <input type="hidden" 
+                        name="vehicle_id" 
+                        x-model="reviewForm.vehicle_id" 
+                        :required="reviewForm.action === 'approve'">
+
+                    {{-- GRID CARD KENDARAAN READY --}}
+                    <div class="space-y-2">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <template x-for="v in getAvailableVehicles()" :key="v.id">
+                                <div @click="reviewForm.vehicle_id = v.id"
+                                    :class="{
+                                        'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20 shadow-2xs': reviewForm.vehicle_id == v.id,
+                                        'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50': reviewForm.vehicle_id != v.id
+                                    }"
+                                    class="relative p-3.5 rounded-xl border cursor-pointer transition flex items-start gap-3 group">
+                                    
+                                    {{-- BADGE CHECKMARK JIKA TERPILIH --}}
+                                    <div class="absolute top-3 right-3">
+                                        <div :class="reviewForm.vehicle_id == v.id ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 bg-white'"
+                                            class="w-5 h-5 rounded-full border flex items-center justify-center transition">
+                                            <svg x-show="reviewForm.vehicle_id == v.id" class="w-3 h-3 stroke-current stroke-3 fill-none" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="20 6 9 17 4 12"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+
+                                    {{-- THUMBNAIL FOTO --}}
+                                    <div class="w-16 h-16 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden shrink-0 relative">
+                                        <template x-if="v.photo">
+                                            <img :src="'/storage/' + v.photo" :alt="v.brand" class="w-full h-full object-cover">
+                                        </template>
+                                        <template x-if="!v.photo">
+                                            <div class="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                                                <svg class="w-6 h-6 stroke-1.5 fill-none stroke-current" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                                    <polyline points="21 15 16 10 5 21"/>
+                                                </svg>
+                                            </div>
+                                        </template>
+                                        <span class="absolute top-0 left-0 bg-gray-900/80 backdrop-blur-xs text-white text-[9px] font-mono font-black px-1.5 py-0.5 rounded-br-md" x-text="v.code || 'N/A'"></span>
+                                    </div>
+
+                                    {{-- RINCIAN INFORMASI --}}
+                                    <div class="space-y-1 pr-6 min-w-0">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            {{-- BADGE TIPE --}}
+                                            <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded border"
+                                                :class="v.type === 'monitoring' 
+                                                    ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                                                    : 'bg-indigo-50 text-indigo-800 border-indigo-200'"
+                                                x-text="v.type === 'monitoring' ? 'Monitoring' : 'Operational'">
+                                            </span>
+
+                                            <h4 class="font-bold text-sm text-gray-900 truncate" x-text="v.brand + ' ' + v.model"></h4>
+                                        </div>
+
+                                        <p class="font-mono text-xs font-bold text-indigo-600 uppercase" x-text="v.plate_number"></p>
+
+                                        <div class="flex items-center gap-2 text-[11px] text-gray-500 pt-0.5 flex-wrap">
+                                            {{-- KAPASITAS --}}
+                                            <span class="flex items-center gap-1">
+                                                <svg class="w-3.5 h-3.5 stroke-gray-400 fill-none stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                                    <circle cx="9" cy="7" r="4"/>
+                                                </svg>
+                                                <span x-text="v.capacity + ' Kursi'"></span>
+                                            </span>
+
+                                            <span>•</span>
+
+                                            {{-- DRIVETRAIN --}}
+                                            <span class="uppercase font-semibold text-gray-700 bg-gray-100 px-1.5 py-0.2 rounded border border-gray-200 text-[10px]" x-text="v.drivetrain ? v.drivetrain.toUpperCase() : '2WD'"></span>
+
+                                            <span>•</span>
+
+                                            {{-- BAHAN BAKAR --}}
+                                            <span class="capitalize" x-text="v.fuel_type"></span>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </template>
+                        </div>
+
+                        {{-- ALERT BENTROK/KOSONG --}}
+                        <template x-if="getAvailableVehicles().length === 0">
+                            <p class="text-[11px] text-rose-600 font-bold p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0 text-rose-600" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                <span>Seluruh armada telah terpakai / bentrok pada rentang jadwal ini.</span>
+                            </p>
                         </template>
-                    </select>
-                    
-                    <template x-if="getAvailableVehicles().length === 0">
-                        <p class="text-[11px] text-rose-600 font-bold mt-1.5 flex items-center gap-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0 text-rose-600" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                                <line x1="12" y1="9" x2="12" y2="13"/>
-                                <line x1="12" y1="17" x2="12.01" y2="17"/>
-                            </svg>
-                            <span>Seluruh armada telah terpakai / bentrok pada rentang jadwal ini.</span>
-                        </p>
-                    </template>
+                    </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">
+                {{-- 2. PILIHAN DRIVER / PENGEMUDI --}}
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-gray-700">
                         Penunjukan Driver / Pengemudi <span class="text-rose-500">*</span>
                     </label>
-                    <select name="driver_id" x-model="reviewForm.driver_id" :required="reviewForm.action === 'approve'"
-                            class="block w-full rounded-xl border-gray-300 text-xs font-medium focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">-- Pilih Pengemudi --</option>
-                        
-                        <optgroup label="Driver Utama / Resmi">
-                            <template x-for="d in getAvailableDrivers().primaryDrivers" :key="d.id">
-                                <option :value="d.id" x-text="`${d.name} ${d.phone ? '(' + d.phone + ')' : ''}`"></option>
-                            </template>
-                        </optgroup>
 
-                        <template x-if="getAvailableDrivers().participants && getAvailableDrivers().participants.length > 0">
-                            <optgroup label="Anggota Tim Permohonan Ini">
-                                <template x-for="p in getAvailableDrivers().participants" :key="p.id">
-                                    <option :value="p.id" x-text="`${p.name} (Anggota Tim)`"></option>
-                                </template>
-                            </optgroup>
+                    {{-- INPUT HIDDEN UNTUK FORM --}}
+                    <input type="hidden" 
+                        name="driver_id" 
+                        x-model="reviewForm.driver_id" 
+                        :required="reviewForm.action === 'approve'">
+
+                    <div class="space-y-3">
+                        {{-- OPTGROUP: DRIVER UTAMA / RESMI --}}
+                        <template x-if="getAvailableDrivers()?.primaryDrivers?.length > 0">
+                            <div class="space-y-2">
+                                <span class="text-[11px] font-extrabold text-indigo-900 uppercase tracking-wider block">Driver Utama / Resmi:</span>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    <template x-for="d in getAvailableDrivers().primaryDrivers" :key="d.id">
+                                        <div @click="reviewForm.driver_id = d.id"
+                                            :class="{
+                                                'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20 shadow-2xs': reviewForm.driver_id == d.id,
+                                                'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50': reviewForm.driver_id != d.id
+                                            }"
+                                            class="relative p-3 rounded-xl border cursor-pointer transition flex items-center gap-3 group">
+                                            
+                                            {{-- BADGE CHECKMARK --}}
+                                            <div class="absolute top-3 right-3">
+                                                <div :class="reviewForm.driver_id == d.id ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 bg-white'"
+                                                    class="w-5 h-5 rounded-full border flex items-center justify-center transition">
+                                                    <svg x-show="reviewForm.driver_id == d.id" class="w-3 h-3 stroke-current stroke-3 fill-none" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="20 6 9 17 4 12"/>
+                                                    </svg>
+                                                </div>
+                                            </div>
+
+                                            {{-- AVATAR INSIAL NAMA DRIVER --}}
+                                            <div class="w-10 h-10 rounded-lg bg-indigo-100 border border-indigo-200 text-indigo-700 font-extrabold text-sm flex items-center justify-center shrink-0"
+                                                x-text="d.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()">
+                                            </div>
+
+                                            {{-- RINCIAN INFORMASI DRIVER --}}
+                                            <div class="space-y-0.5 pr-6 min-w-0">
+                                                <h4 class="font-bold text-xs text-gray-900 truncate" x-text="d.name"></h4>
+                                                <div class="flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                                    </svg>
+                                                    <span x-text="d.phone || 'Tidak Ada Kontak'"></span>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
                         </template>
-                    </select>
 
-                    <template x-if="(getAvailableDrivers()?.primaryDrivers?.length || 0) === 0">
-                        <p class="text-[11px] text-amber-700 font-medium mt-1.5 flex items-center gap-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0 text-amber-600" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"/>
-                                <line x1="12" y1="16" x2="12" y2="12"/>
-                                <line x1="12" y1="8" x2="12.01" y2="8"/>
-                            </svg>
-                            <span>Seluruh driver resmi sedang bertugas. Anda dapat menunjuk Anggota Tim di atas sebagai pengemudi.</span>
-                        </p>
-                    </template>
+                        {{-- OPTGROUP: ANGGOTA TIM PERMOHONAN INI --}}
+                        <template x-if="getAvailableDrivers()?.participants && getAvailableDrivers().participants.length > 0">
+                            <div class="space-y-2 pt-1">
+                                <span class="text-[11px] font-extrabold text-amber-900 uppercase tracking-wider block">Anggota Tim Permohonan Ini (Pengemudi Cadangan):</span>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    <template x-for="p in getAvailableDrivers().participants" :key="p.id">
+                                        <div @click="reviewForm.driver_id = p.id"
+                                            :class="{
+                                                'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20 shadow-2xs': reviewForm.driver_id == p.id,
+                                                'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50': reviewForm.driver_id != p.id
+                                            }"
+                                            class="relative p-3 rounded-xl border cursor-pointer transition flex items-center gap-3 group">
+                                            
+                                            {{-- BADGE CHECKMARK --}}
+                                            <div class="absolute top-3 right-3">
+                                                <div :class="reviewForm.driver_id == p.id ? 'bg-amber-600 border-amber-600 text-white' : 'border-gray-300 bg-white'"
+                                                    class="w-5 h-5 rounded-full border flex items-center justify-center transition">
+                                                    <svg x-show="reviewForm.driver_id == p.id" class="w-3 h-3 stroke-current stroke-3 fill-none" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="20 6 9 17 4 12"/>
+                                                    </svg>
+                                                </div>
+                                            </div>
+
+                                            {{-- AVATAR INSIAL --}}
+                                            <div class="w-10 h-10 rounded-lg bg-amber-100 border border-amber-200 text-amber-800 font-extrabold text-sm flex items-center justify-center shrink-0"
+                                                x-text="p.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()">
+                                            </div>
+
+                                            {{-- RINCIAN INFORMASI ANGGOTA TIM --}}
+                                            <div class="space-y-0.5 pr-6 min-w-0">
+                                                <h4 class="font-bold text-xs text-gray-900 truncate" x-text="p.name"></h4>
+                                                <span class="inline-block text-[10px] font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.2 rounded border border-amber-200/80">Anggota Tim</span>
+                                            </div>
+
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        {{-- ALERT DRIVER KOSONG / TERSISA ANGGOTA TIM --}}
+                        <template x-if="(getAvailableDrivers()?.primaryDrivers?.length || 0) === 0">
+                            <p class="text-[11px] text-amber-800 font-medium p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0 text-amber-600" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="16" x2="12" y2="12"/>
+                                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                </svg>
+                                <span>Seluruh driver resmi sedang bertugas. Anda dapat menunjuk Anggota Tim di atas sebagai pengemudi.</span>
+                            </p>
+                        </template>
+                    </div>
                 </div>
 
-                <!-- ARENA TANDA TANGAN ADMIN LAPANGAN -->
+                {{-- 3. ARENA TANDA TANGAN ADMIN LAPANGAN --}}
                 <div x-show="reviewForm.action === 'approve'" class="space-y-1.5 pt-2">
                     <div class="flex items-center justify-between gap-2 mb-2">
                         <label class="text-xs font-bold text-gray-700 flex items-center gap-1 leading-snug">

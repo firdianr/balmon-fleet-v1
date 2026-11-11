@@ -66,7 +66,7 @@ class BookingController extends Controller
         // 3. Data Master Kendaraan Non-Maintenance
         $availableVehicles = Vehicle::where('status', '!=', 'maintenance')
             ->orderBy('code', 'asc')
-            ->get(['id', 'brand', 'model', 'plate_number', 'code']);
+            ->get(['id', 'brand', 'model', 'type', 'drivetrain', 'plate_number', 'code', 'photo']);
 
         // 4. Data Master Checklist Aktif (JSON Snapshot)
         $masterChecklists = MasterChecklist::active()
@@ -398,7 +398,7 @@ class BookingController extends Controller
                 . "Tipe Armada: " . strtoupper($booking->vehicle_type) . "\n"
                 . "Tujuan: {$booking->destination}\n"
                 . "Jadwal: {$startDateStr} s.d. {$endDateStr}\n\n"
-                . "Mohon lakukan alokasi armada dan driver via dashboard.";
+                . "Mohon lakukan alokasi armada dan driver via aplikasi Balmon-Fleet.";
 
             WhatsAppService::sendBulkMessage($adminPhones, $msgAdmin);
         }
@@ -482,12 +482,12 @@ class BookingController extends Controller
             $docLabel      = $booking->letter_type === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas';
             $applicantName = $draftBooking->user->name ?? Auth::user()->name;
 
-            $msgAdmin = "📋 *PERMOHONAN RESMI DARI DRAFT*\n\n"
+            $msgAdmin = "📋 *PERMOHONAN PEMINJAMAN BARU*\n\n"
                 . "No. {$docLabel}: {$booking->letter_number}\n"
                 . "Pemohon: {$applicantName}\n"
                 . "Tujuan: {$booking->destination}\n"
                 . "Jadwal: {$startDateStr} s.d. {$endDateStr}\n\n"
-                . "Draft permohonan armada telah resmi dikonversi menjadi permohonan resmi. Mohon Tinjau dan lakukan alokasi armada & driver via dashboard.";
+                . "Permohonan peminjaman baru telah masuk. Mohon Tinjau dan lakukan alokasi armada & driver via aplikasi Balmon-Fleet.";
 
             WhatsAppService::sendBulkMessage($adminPhones, $msgAdmin);
         }
@@ -664,7 +664,7 @@ class BookingController extends Controller
                     . "Pemohon: *" . ($booking->user->name ?? '-') . "*\n"
                     . "Armada: *" . $vehicleName . "*\n"
                     . "Driver: *" . $driverName . "*\n\n"
-                    . "Mohon periksa dan berikan persetujuan pada sistem Balmon Fleet.";
+                    . "Mohon periksa dan berikan persetujuan pada aplikasi Balmon-Fleet.";
 
                 WhatsAppService::sendBulkMessage($approverPhones, $msgApprover);
             }
@@ -719,7 +719,7 @@ class BookingController extends Controller
             ]);
 
             if (!empty($booking->user?->phone)) {
-                $msg = "❌ *PERMOHONAN PEMINJAMAN DITOLAK OLEH ATASAN*\n\n"
+                $msg = "❌ *PERMOHONAN PEMINJAMAN DITOLAK*\n\n"
                     . "Halo *" . $booking->user->name . "*,\n"
                     . "Permohonan dengan No. Surat *" . $booking->letter_number . "* telah ditolak oleh Pejabat Berwenang.\n"
                     . "📝 *Alasan:* " . ($note ?? '-');
@@ -1013,7 +1013,7 @@ class BookingController extends Controller
             $msgPemohon = "✍️ *PERMINTAAN TANDA TANGAN KEBERANGKATAN*\n\n"
                 . "Halo *" . $booking->user->name . "*,\n"
                 . "Log keberangkatan armada untuk No. Surat *" . $booking->letter_number . "* telah diisi oleh Driver (" . $currentUser->name . ").\n\n"
-                . "Mohon lakukan penandatanganan pengesahan BAST Peminjaman melalui sistem Balmon Fleet agar perjalanan dapat resmi dimulai.";
+                . "Mohon lakukan penandatanganan pengesahan BAST Peminjaman melalui aplikasi Balmon-Fleet.";
 
             WhatsAppService::sendMessage($booking->user->phone, $msgPemohon);
         }
@@ -1145,8 +1145,23 @@ class BookingController extends Controller
             }
         }
 
-        // 6. Jalankan DB Transaction (Mengikuti Alur startTrip)
-        DB::transaction(function () use ($request, $booking, $log, $validated, $currentUser, $items, $endPhotoPath, $washReceiptPath, $uploadedEndConditionPhotos) {
+        // ------------------------------------------------------------------
+        // LOGIKA BARU: CEK APAPUN CHECKLIST YANG BERNILAI FALSE ATAU ADA INSIDEN
+        // ------------------------------------------------------------------
+        $hasFailedChecklist = false;
+        foreach ($items as $key => $value) {
+            // Cek jika bernilai boolean false, integer 0, atau string 'false'/'0'
+            if ($value === false || $value === 0 || $value === 'false' || $value === '0') {
+                $hasFailedChecklist = true;
+                break;
+            }
+        }
+
+        // Jika ada insiden dilaporkan atau ada item checklist bernilai false
+        $isVehicleDamaged = $hasFailedChecklist || filter_var($request->input('has_incident'), FILTER_VALIDATE_BOOLEAN);
+
+        // 6. Jalankan DB Transaction
+        DB::transaction(function () use ($request, $booking, $log, $validated, $currentUser, $items, $endPhotoPath, $washReceiptPath, $uploadedEndConditionPhotos, $isVehicleDamaged) {
             
             // A. Update payload condition_notes & condition_photos pada VehicleLog
             $notesPayload = is_array($log->condition_notes) 
@@ -1184,14 +1199,26 @@ class BookingController extends Controller
 
             // C. Update Status Booking ke 'trip_completed'
             $booking->update(['status' => 'trip_completed']);
+
+            // D. UPDATE STATUS KENDARAAN KE 'maintenance' JIKA ADA CHECKLIST FALSE / INSIDEN
+            if ($isVehicleDamaged && $booking->vehicle) {
+                $booking->vehicle->update([
+                    'status' => 'maintenance'
+                ]);
+            }
         });
 
-        // 7. Kirim Notifikasi WA ke Pemohon
+        // 7. Kirim Notifikasi WA ke Pemohon (Sesuaikan pesan jika kendaraan butuh maintenance)
         if (!empty($booking->user?->phone)) {
             $waMessage = "🏁 *LOG KEPULANGAN DIISI*\n\n"
                 . "Halo *" . $booking->user->name . "*,\n"
-                . "Driver/Petugas telah selesai mengisi log pengembalian untuk kendaraan *" . ($booking->vehicle?->brand ?? '') . " " . ($booking->vehicle?->model ?? '') . "*.\n\n"
-                . "Silakan masuk ke sistem Balmon Fleet untuk memeriksa hasil pemeriksaan fisik dan membubuhkan **Tanda Tangan Pengembalian Armada**.";
+                . "Driver/Petugas telah selesai mengisi log pengembalian untuk kendaraan *" . ($booking->vehicle?->brand ?? '') . " " . ($booking->vehicle?->model ?? '') . "*.\n\n";
+
+            if ($isVehicleDamaged) {
+                $waMessage .= "⚠️ *Catatan:* Terdapat item checklist/kondisi yang butuh perbaikan. Status kendaraan otomatis dialihkan ke *MAINTENANCE*.\n\n";
+            }
+
+            $waMessage .= "Silakan masuk ke aplikasi Balmon-Fleet untuk memeriksa hasil pemeriksaan fisik dan membubuhkan **Tanda Tangan Pengembalian Armada**.";
 
             try {
                 WhatsAppService::sendMessage($booking->user->phone, $waMessage);
@@ -1200,7 +1227,12 @@ class BookingController extends Controller
             }
         }
 
-        return redirect()->back()->with('success', 'Log kepulangan berhasil disimpan. Menunggu TTD pengembalian dari pemohon.');
+        $successMessage = 'Log kepulangan berhasil disimpan. Menunggu TTD pengembalian dari pemohon.';
+        if ($isVehicleDamaged) {
+            $successMessage .= ' Status kendaraan otomatis diubah menjadi Maintenance karena terdapat kendala fisik/kerusakan.';
+        }
+
+        return redirect()->back()->with('success', $successMessage);
     }
 
     /**
@@ -1281,14 +1313,16 @@ class BookingController extends Controller
             $pemohonName = Auth::user()->name;
             $vehicleName = ($booking->vehicle?->brand ?? '') . ' ' . ($booking->vehicle?->model ?? '') . ' (' . ($booking->vehicle?->plate_number ?? '') . ')';
 
-            $waMessageAdmin = "📥 *PENGEMBALIAN ARMADA DISAHKAN PEMOHON*\n\n"
-                . "Halo Admin,\n"
+            $waMessageAdmin = "📥 *PENGEMBALIAN ARMADA*\n\n"
+                . "Halo,\n"
                 . "Pemohon *" . $pemohonName . "* telah selesai menandatangani **Formulir & BAST Pengembalian Armada**.\n\n"
                 . "📋 *Rincian Peminjaman:*\n"
                 . "• No Surat: *" . $booking->letter_number . "*\n"
                 . "• Unit Armada: *" . $vehicleName . "*\n"
-                . "• Tipe Surat: *" . strtoupper(str_replace('_', ' ', $booking->letter_type)) . "*\n\n"
-                . "Silakan lakukan peninjauan fisik dan verifikasi pengembalian armada di sistem Balmon Fleet.";
+                . "• Tujuan: *" . $booking->destination . "*\n"
+                . "• Tanggal Mulai: *" . $booking->start_date->format('d M Y H:i') . "*\n"
+                . "• Tanggal Selesai: *" . $booking->end_date->format('d M Y H:i') . "*\n"
+                . "Silakan lakukan peninjauan fisik dan verifikasi pengembalian armada di aplikasi Balmon-Fleet.";
 
             foreach ($adminUsers as $admin) {
                 try {
@@ -1345,7 +1379,33 @@ class BookingController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($booking, $currentUser, $request, $validated, $existingSignature, $items) {
+        // ------------------------------------------------------------------
+        // LOGIKA BARU: EVALUASI CHECKLIST FALSE & HAS INCIDENT LOG
+        // ------------------------------------------------------------------
+        $hasFailedChecklist = false;
+        foreach ($items as $key => $value) {
+            if ($value === false || $value === 0 || $value === 'false' || $value === '0') {
+                $hasFailedChecklist = true;
+                break;
+            }
+        }
+
+        // Cek juga insiden dari VehicleLog jika ada
+        $hasLogIncident = false;
+        if ($booking->log && !empty($booking->log->condition_notes)) {
+            $logNotes = is_array($booking->log->condition_notes) 
+                ? $booking->log->condition_notes 
+                : json_decode($booking->log->condition_notes, true);
+            
+            if (!empty($logNotes['end'])) {
+                $hasLogIncident = true;
+            }
+        }
+
+        // Kendaraan dikategorikan butuh maintenance jika ada checklist false ATAU ada catatan insiden
+        $isVehicleDamaged = $hasFailedChecklist || $hasLogIncident;
+
+        DB::transaction(function () use ($booking, $currentUser, $request, $validated, $existingSignature, $items, $isVehicleDamaged) {
             // 1. Simpan / Update TTD jika ada input signature baru
             if ($request->filled('signature')) {
                 if ($existingSignature && $existingSignature->signature_path) {
@@ -1410,6 +1470,15 @@ class BookingController extends Controller
                     'admin_verification_notes' => $validated['admin_verification_notes'] ?? null,
                 ]);
             }
+
+            // 5. PERBAIKAN LOGIKA STATUS VEHICLE:
+            // Jika terbukti ada kendala/false -> status 'maintenance'
+            // Jika fisik aman/lulus verifikasi -> kembalikan status ke 'available'
+            if ($booking->vehicle) {
+                $booking->vehicle->update([
+                    'status' => $isVehicleDamaged ? 'maintenance' : 'available'
+                ]);
+            }
         });
 
         // Notifikasi WA ke Approver
@@ -1418,7 +1487,9 @@ class BookingController extends Controller
             $msgApprover = "🏁 *PEMERIKSAAN PENGEMBALIAN ARMADA SELESAI*\n\n"
                 . "No. Surat: *" . $booking->letter_number . "*\n"
                 . "Pemohon: *" . ($booking->user->name ?? '-') . "*\n\n"
-                . "Pemeriksaan fisik oleh Admin Lapangan telah SELESAI. Mohon periksa BAST Pengembalian dan berikan pengesahan akhir.";
+                . "Pemeriksaan fisik oleh Koordinator telah SELESAI.\n"
+                . "Status Fisik Kendaraan: *" . ($isVehicleDamaged ? 'BUTUH MAINTENANCE / KENDALA' : 'LULUS (AVAILABLE)') . "*\n\n"
+                . "Mohon periksa BAST Pengembalian dan berikan pengesahan akhir.";
 
             try {
                 WhatsAppService::sendBulkMessage($approverPhones, $msgApprover);
@@ -1427,7 +1498,14 @@ class BookingController extends Controller
             }
         }
 
-        return redirect()->route('bookings.index')->with('success', 'Hasil verifikasi fisik dan tanda tangan berhasil disesuaikan.');
+        $successMsg = 'Hasil verifikasi fisik dan tanda tangan berhasil disesuaikan.';
+        if ($isVehicleDamaged) {
+            $successMsg .= ' Status kendaraan diset ke Maintenance karena terdapat checklist false/kendala fisik.';
+        } else {
+            $successMsg .= ' Kendaraan telah terverifikasi aman dan status dialihkan ke Available.';
+        }
+
+        return redirect()->route('bookings.index')->with('success', $successMsg);
     }
 
     public function edit(Booking $booking)

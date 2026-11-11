@@ -84,6 +84,26 @@
             return (this.endDateOnlyMulti && this.endTimeMulti) ? `${this.endDateOnlyMulti} ${this.endTimeMulti}:00` : '';
         },
 
+        formatHumanDate(dateTimeString) {
+            if (!dateTimeString) return '-';
+            
+            // Mengubah string tanggal menjadi objek Date
+            const date = new Date(dateTimeString.replace(' ', 'T'));
+            if (isNaN(date.getTime())) return dateTimeString; // Fallback jika format tidak valid
+
+            // Format tanggal ke Bahasa Indonesia
+            const formattedDate = new Intl.DateTimeFormat('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).format(date);
+
+            return formattedDate.replace('.', ':') + ' WIB';
+        },
+
         get vehicleType() {
             return '{{ $draftBooking->vehicle ? $draftBooking->vehicle->type : 'operational' }}';
         },
@@ -589,11 +609,19 @@
 
                     {{-- Ringkasan Data --}}
                     <div class="bg-gray-50 p-4 rounded-xl border border-gray-200/90 text-xs space-y-2.5">
-                        <div class="flex justify-between border-b border-gray-200/60 pb-2">
-                            <span class="text-gray-500 font-medium">Jenis & Nomor Dokumen:</span>
-                            <span class="font-bold text-indigo-900 text-right">
-                                <span x-text="documentType === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas'"></span>
-                                <span class="block font-mono text-[11px] text-gray-600" x-text="letterNumber || '-'"></span>
+                        {{-- BARIS 1: JENIS DOKUMEN --}}
+                        <div class="flex justify-between items-center border-b border-gray-200/60 pb-2">
+                            <span class="text-gray-500 font-medium text-xs">Jenis Dokumen:</span>
+                            <span class="font-bold text-indigo-900 text-xs text-right" 
+                                x-text="documentType === 'nota_dinas' ? 'Nota Dinas' : (documentType === 'surat_tugas' ? 'Surat Tugas' : (documentType || '-'))">
+                            </span>
+                        </div>
+
+                        {{-- BARIS 2: NOMOR DOKUMEN / SURAT --}}
+                        <div class="flex justify-between items-center border-b border-gray-200/60 pb-2">
+                            <span class="text-gray-500 font-medium text-xs">Nomor Dokumen:</span>
+                            <span class="font-mono text-xs font-bold text-gray-700 text-right" 
+                                x-text="letterNumber || '-'">
                             </span>
                         </div>
 
@@ -611,14 +639,14 @@
                             </span>
                         </div>
 
-                        <div class="flex justify-between border-b border-gray-200/60 pb-2">
-                            <span class="text-gray-500 font-medium">Waktu Mulai:</span>
-                            <span class="font-bold text-gray-800" x-text="finalStartDate || '-'"></span>
+                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
+                            <span class="text-gray-500 text-xs font-semibold">Waktu Mulai:</span>
+                            <span class="font-bold text-gray-900 text-xs" x-text="formatHumanDate(finalStartDate)"></span>
                         </div>
 
-                        <div class="flex justify-between border-b border-gray-200/60 pb-2">
-                            <span class="text-gray-500 font-medium">Waktu Selesai:</span>
-                            <span class="font-bold text-gray-800" x-text="finalEndDate || '-'"></span>
+                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
+                            <span class="text-gray-500 text-xs font-semibold">Waktu Selesai:</span>
+                            <span class="font-bold text-gray-900 text-xs" x-text="formatHumanDate(finalEndDate)"></span>
                         </div>
 
                         <div class="flex justify-between border-b border-gray-200/60 pb-2">

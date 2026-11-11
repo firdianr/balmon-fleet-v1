@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\MasterChecklistController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\VehicleController;
 use App\Http\Controllers\BookingController;
@@ -7,7 +8,6 @@ use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DraftBookingController;
 use App\Http\Controllers\DriverCalendarController;
-use App\Http\Controllers\MasterChecklistController;
 use App\Http\Controllers\PdfController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
@@ -128,6 +128,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{vehicle:slug}', [VehicleController::class, 'destroy'])->name('destroy');
         });
 
+        Route::post('master-checklists/reorder', [MasterChecklistController::class, 'reorder'])->name('master-checklists.reorder');
         Route::resource('master-checklists', MasterChecklistController::class)->except(['create', 'edit', 'show']);
 
         // Review Draft Permohonan & Verifikasi Pengembalian Armada

@@ -67,7 +67,7 @@
         }
     @endphp
 
-    <div class="pt-2 pb-6" x-data="{
+    <div class="pt-2 pb-6 px-1" x-data="{
         // State Tipe Dokumen (Surat Tugas / Nota Dinas)
         documentType: '{{ old('letter_type', 'surat_tugas') }}',
         
@@ -106,6 +106,26 @@
                 return this.singleDate ? `${this.singleDate} ${this.endTime}:00` : '';
             }
             return (this.endDateOnlyMulti && this.endTimeMulti) ? `${this.endDateOnlyMulti} ${this.endTimeMulti}:00` : '';
+        },
+
+        formatHumanDate(dateTimeString) {
+            if (!dateTimeString) return '-';
+            
+            // Mengubah string tanggal menjadi objek Date
+            const date = new Date(dateTimeString.replace(' ', 'T'));
+            if (isNaN(date.getTime())) return dateTimeString; // Fallback jika format tidak valid
+
+            // Format tanggal ke Bahasa Indonesia
+            const formattedDate = new Intl.DateTimeFormat('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).format(date);
+
+            return formattedDate.replace('.', ':') + ' WIB';
         },
 
         selectedUserIds: {{ Illuminate\Support\Js::from(old('participants', [''])) }}.map(id => String(id)),
@@ -339,7 +359,7 @@
             </div>
 
             {{-- FORM PERMOHONAN --}}
-            <div class="bg-white pt-2 pb-6 sm:p-8 rounded-xl border border-gray-200 shadow-xs">
+            <div class="bg-white pt-2 pb-6 sm:p-8 rounded-xl border border-gray-200 shadow-xs px-2">
                 <form x-ref="bookingForm" 
                     action="{{ route('bookings.store') }}" 
                     method="POST" 
@@ -436,13 +456,93 @@
                             <span>Pilih Mobil Monitoring</span> <span class="text-rose-500">*</span>
                         </label>
 
-                        <select name="vehicle_id" x-model="selectedVehicleId" :required="vehicleType === 'monitoring'" 
-                                class="block w-full rounded-lg border-gray-300 shadow-2xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium">
-                            <option value="">-- Pilih Unit Armada Monitoring --</option>
-                            <template x-for="v in monitoringVehicles" :key="v.id">
-                                <option :value="v.id" x-text="'[' + v.code + '] ' + v.brand + ' ' + v.model + ' - ' + v.plate_number"></option>
+                        {{-- INPUT HIDDEN UNTUK MENAMPUNG VALUE DAN SYARAT REQUIRED FORM --}}
+                        <input type="hidden" 
+                            name="vehicle_id" 
+                            x-model="selectedVehicleId" 
+                            :required="vehicleType === 'monitoring'">
+
+                        {{-- GRID CARD KENDARAAN MONITORING --}}
+                        <div class="space-y-2">
+                            <label class="sr-only">Pilih Unit Armada Monitoring</label>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <template x-for="v in monitoringVehicles" :key="v.id">
+                                    <div @click="selectedVehicleId = v.id"
+                                        :class="{
+                                            'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20': selectedVehicleId == v.id,
+                                            'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50': selectedVehicleId != v.id
+                                        }"
+                                        class="relative p-3.5 rounded-xl border cursor-pointer transition flex items-start gap-3 shadow-2xs group">
+                                        
+                                        {{-- BADGE CHECKMARK JIKA TERPILIH --}}
+                                        <div class="absolute top-3 right-3">
+                                            <div :class="selectedVehicleId == v.id ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 bg-white'"
+                                                class="w-5 h-5 rounded-full border flex items-center justify-center transition">
+                                                <svg x-show="selectedVehicleId == v.id" class="w-3 h-3 stroke-current stroke-3 fill-none" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="20 6 9 17 4 12"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+
+                                        {{-- THUMBNAIL FOTO --}}
+                                        <div class="w-16 h-16 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden shrink-0 relative">
+                                            <template x-if="v.photo">
+                                                <img :src="'/storage/' + v.photo" :alt="v.brand" class="w-full h-full object-cover">
+                                            </template>
+                                            <template x-if="!v.photo">
+                                                <div class="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                                                    <svg class="w-6 h-6 stroke-1.5 fill-none stroke-current" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                                        <polyline points="21 15 16 10 5 21"/>
+                                                    </svg>
+                                                </div>
+                                            </template>
+                                            <span class="absolute top-0 left-0 bg-gray-900/80 backdrop-blur-xs text-white text-[9px] font-mono font-black px-1.5 py-0.5 rounded-br-md" x-text="v.code"></span>
+                                        </div>
+
+                                        {{-- RINCIAN INFORMASI --}}
+                                        <div class="space-y-1 pr-6 min-w-0">
+                                            <div class="flex items-center gap-1.5 flex-wrap">
+                                                <h4 class="font-bold text-sm text-gray-900 truncate" x-text="v.brand + ' ' + v.model"></h4>
+                                            </div>
+
+                                            <p class="font-mono text-xs font-bold text-indigo-600 uppercase" x-text="v.plate_number"></p>
+
+                                            <div class="flex items-center gap-2 text-[11px] text-gray-500 pt-0.5 flex-wrap">
+                                                {{-- KAPASITAS --}}
+                                                <span class="flex items-center gap-1">
+                                                    <svg class="w-3.5 h-3.5 stroke-gray-400 fill-none stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                                        <circle cx="9" cy="7" r="4"/>
+                                                    </svg>
+                                                    <span x-text="v.capacity + ' Kursi'"></span>
+                                                </span>
+
+                                                <span>•</span>
+
+                                                {{-- DRIVETRAIN --}}
+                                                <span class="uppercase font-semibold text-gray-700 bg-gray-100 px-1.5 py-0.2 rounded border border-gray-200" x-text="v.drivetrain || '2WD'"></span>
+
+                                                <span>•</span>
+
+                                                {{-- BAHAN BAKAR --}}
+                                                <span class="capitalize" x-text="v.fuel_type"></span>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </template>
+                            </div>
+
+                            {{-- PESAN JIKA TIDAK ADA FLEET MONITORING TERSEDIA --}}
+                            <template x-if="monitoringVehicles.length === 0">
+                                <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl text-center text-xs text-gray-500 italic">
+                                    Tidak ada unit armada monitoring yang tersedia untuk dipilih.
+                                </div>
                             </template>
-                        </select>
+                        </div>
                     </div>
 
                     {{-- CATATAN SPESIFIKASI KENDARAAN --}}
@@ -672,19 +772,24 @@
                             </div>
                         </template>
 
-                        <div class="flex justify-between border-b pb-1.5">
-                            <span class="text-gray-500 font-semibold">Waktu Mulai:</span>
-                            <span class="font-bold text-gray-900" x-text="finalStartDate || '-'"></span>
+                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
+                            <span class="text-gray-500 text-xs font-semibold">Waktu Mulai:</span>
+                            <span class="font-bold text-gray-900 text-xs" x-text="formatHumanDate(finalStartDate)"></span>
                         </div>
 
-                        <div class="flex justify-between border-b pb-1.5">
-                            <span class="text-gray-500 font-semibold">Waktu Selesai:</span>
-                            <span class="font-bold text-gray-900" x-text="finalEndDate || '-'"></span>
+                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
+                            <span class="text-gray-500 text-xs font-semibold">Waktu Selesai:</span>
+                            <span class="font-bold text-gray-900 text-xs" x-text="formatHumanDate(finalEndDate)"></span>
                         </div>
 
-                        <div class="flex justify-between border-b pb-1.5">
-                            <span class="text-gray-500 font-semibold">Tujuan:</span>
-                            <span class="font-bold text-gray-900" x-text="destination || '-'"></span>
+                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
+                            <span class="text-gray-500 text-xs font-semibold">Tujuan:</span>
+                            <span class="font-bold text-gray-900 text-xs" x-text="destination || '-'"></span>
+                        </div>
+
+                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
+                            <span class="text-gray-500 text-xs font-semibold">Keperluan:</span>
+                            <span class="font-bold text-gray-900 text-xs" x-text="purpose || '-'"></span>
                         </div>
                     </div>
 

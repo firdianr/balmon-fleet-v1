@@ -23,6 +23,24 @@
             drivers: {{ Illuminate\Support\Js::from($availableDrivers) }},
             activeBookings: {{ Illuminate\Support\Js::from($activeBookings) }},
             attendances: {{ Illuminate\Support\Js::from($attendances) }},
+
+            getStatusLabel(status) {
+                const labels = {
+                    'pending': 'Menunggu Review',
+                    'waiting': 'Menunggu Persetujuan',
+                    'approved': 'Disetujui',
+                    'trip_started': 'Perjalanan Dimulai',
+                    'on_trip': 'Dalam Perjalanan',
+                    'trip_completed': 'Perjalanan Selesai',
+                    'returned': 'Armada Dikembalikan',
+                    'checked': 'Selesai Diperiksa',
+                    'completed': 'Selesai',
+                    'canceled': 'Dibatalkan',
+                    'rejected': 'Ditolak'
+                };
+                return labels[status] || status;
+            },
+
             showReviewModal: false,
             reviewForm: {
                 action: 'approve',
@@ -238,6 +256,7 @@
 
             // --- MODAL APPROVER REVIEW ---
             showApproverModal: false,
+            showChecklistDetail: false,
             approverActionType: '', 
             approverForm: {
                 action: 'approve',
@@ -251,6 +270,7 @@
             openApproverModal(booking, type) {
                 this.selectedBooking = booking;
                 this.approverActionType = type;
+                this.showChecklistDetail = false;
                 this.approverForm.action = 'approve';
                 this.approverForm.admin_note = '';
                 this.approverForm.signatureError = '';
@@ -782,21 +802,21 @@
                                 <a :href="`/bookings/${booking.letter_slug}`" class="font-mono font-bold text-sm text-indigo-600 hover:underline block" x-text="booking.letter_number"></a>
                                 <p class="text-xs text-gray-500 font-medium mt-0.5" x-text="booking.user ? booking.user.name : '-'"></p>
                             </div>
-                            <span class="px-2.5 py-1 text-[11px] font-extrabold rounded-full shrink-0 uppercase tracking-wider whitespace-nowrap"
-                                  :class="{
-                                      'bg-yellow-100 text-yellow-800': booking.status === 'pending',
-                                      'bg-amber-100 text-amber-800': booking.status === 'waiting',
-                                      'bg-blue-100 text-blue-800': booking.status === 'approved',
-                                      'bg-emerald-100 text-emerald-800': booking.status === 'trip_started',
-                                      'bg-purple-100 text-purple-800': booking.status === 'on_trip',
-                                      'bg-violet-100 text-violet-800': booking.status === 'trip_completed',
-                                      'bg-indigo-100 text-indigo-800': booking.status === 'returned',
-                                      'bg-cyan-100 text-cyan-800': booking.status === 'checked',
-                                      'bg-teal-100 text-teal-800': booking.status === 'completed',
-                                      'bg-gray-200 text-gray-700': booking.status === 'canceled',
-                                      'bg-rose-100 text-rose-800': booking.status === 'rejected'
-                                  }"
-                                  x-text="booking.status.replace('_', ' ')">
+                            <span class="px-2.5 py-1 text-[11px] font-extrabold rounded-full shrink-0 uppercase tracking-wider whitespace-nowrap border"
+                                :class="{
+                                    'bg-yellow-100 text-yellow-800 border-yellow-200': booking.status === 'pending',
+                                    'bg-amber-100 text-amber-800 border-amber-200': booking.status === 'waiting',
+                                    'bg-blue-100 text-blue-800 border-blue-200': booking.status === 'approved',
+                                    'bg-emerald-100 text-emerald-800 border-emerald-200': booking.status === 'trip_started',
+                                    'bg-purple-100 text-purple-800 border-purple-200': booking.status === 'on_trip',
+                                    'bg-violet-100 text-violet-800 border-violet-200': booking.status === 'trip_completed',
+                                    'bg-indigo-100 text-indigo-800 border-indigo-200': booking.status === 'returned',
+                                    'bg-cyan-100 text-cyan-800 border-cyan-200': booking.status === 'checked',
+                                    'bg-teal-100 text-teal-800 border-teal-200': booking.status === 'completed',
+                                    'bg-gray-200 text-gray-700 border-gray-300': booking.status === 'canceled',
+                                    'bg-rose-100 text-rose-800 border-rose-200': booking.status === 'rejected'
+                                }"
+                                x-text="getStatusLabel(booking.status)">
                             </span>
                         </div>
 
@@ -1042,21 +1062,21 @@
                                     </td>
                                     
                                     <td class="p-3">
-                                        <span class="px-2.5 py-1 text-xs font-bold rounded-full uppercase whitespace-nowrap"
+                                        <span class="px-2.5 py-1 text-xs font-bold rounded-full uppercase whitespace-nowrap border"
                                             :class="{
-                                                'bg-yellow-100 text-yellow-800': booking.status === 'pending',
-                                                'bg-amber-100 text-amber-800': booking.status === 'waiting',
-                                                'bg-blue-100 text-blue-800': booking.status === 'approved',
-                                                'bg-emerald-100 text-emerald-800': booking.status === 'trip_started',
-                                                'bg-purple-100 text-purple-800': booking.status === 'on_trip',
-                                                'bg-violet-100 text-violet-800': booking.status === 'trip_completed',
-                                                'bg-indigo-100 text-indigo-800': booking.status === 'returned',
-                                                'bg-cyan-100 text-cyan-800': booking.status === 'checked',
-                                                'bg-teal-100 text-teal-800': booking.status === 'completed',
-                                                'bg-gray-200 text-gray-700': booking.status === 'canceled',
-                                                'bg-rose-100 text-rose-800': booking.status === 'rejected'
+                                                'bg-yellow-100 text-yellow-800 border-yellow-200': booking.status === 'pending',
+                                                'bg-amber-100 text-amber-800 border-amber-200': booking.status === 'waiting',
+                                                'bg-blue-100 text-blue-800 border-blue-200': booking.status === 'approved',
+                                                'bg-emerald-100 text-emerald-800 border-emerald-200': booking.status === 'trip_started',
+                                                'bg-purple-100 text-purple-800 border-purple-200': booking.status === 'on_trip',
+                                                'bg-violet-100 text-violet-800 border-violet-200': booking.status === 'trip_completed',
+                                                'bg-indigo-100 text-indigo-800 border-indigo-200': booking.status === 'returned',
+                                                'bg-cyan-100 text-cyan-800 border-cyan-200': booking.status === 'checked',
+                                                'bg-teal-100 text-teal-800 border-teal-200': booking.status === 'completed',
+                                                'bg-gray-200 text-gray-700 border-gray-300': booking.status === 'canceled',
+                                                'bg-rose-100 text-rose-800 border-rose-200': booking.status === 'rejected'
                                             }"
-                                            x-text="booking.status.replace('_', ' ')">
+                                            x-text="getStatusLabel(booking.status)">
                                         </span>
                                     </td>
 

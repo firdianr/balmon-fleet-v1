@@ -49,7 +49,7 @@
                             <span class="font-bold text-gray-900 block text-sm">{{ $b->user?->name }} — {{ $b->destination }}</span>
                             <span class="text-gray-600">Armada: <strong>{{ $b->vehicle?->brand }} ({{ $b->vehicle?->plate_number }})</strong> | Driver: <strong>{{ $b->driver?->name ?? 'Tanpa Driver' }}</strong></span>
                         </div>
-                        <a href="{{ route('bookings.show', $b->letter_slug) }}" class="px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">
+                        <a href="{{ route('bookings.index', $b->letter_slug) }}" class="px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">
                             Buka & TTD Pengesahan
                         </a>
                     </div>
@@ -72,7 +72,7 @@
                             <span class="font-bold text-gray-900 block text-sm">{{ $b->user?->name }} — {{ $b->destination }}</span>
                             <span class="text-gray-600">Armada: <strong>{{ $b->vehicle?->brand }} ({{ $b->vehicle?->plate_number }})</strong> | Verifikasi Garasi: <span class="text-teal-700 font-bold">LULUS PHYSICAL CHECK</span></span>
                         </div>
-                        <a href="{{ route('bookings.show', $b->letter_slug) }}" class="px-4 py-2 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 transition">
+                        <a href="{{ route('bookings.index', $b->letter_slug) }}" class="px-4 py-2 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 transition">
                             Buka & TTD Penutupan
                         </a>
                     </div>
