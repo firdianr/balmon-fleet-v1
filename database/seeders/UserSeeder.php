@@ -56,6 +56,7 @@ class UserSeeder extends Seeder
                 'slug'       => 'ardiansyah',
                 'nip'        => '199109252025211035',
                 'email'      => 'ardiansyah@balmon.go.id',
+                'role'       => 'driver',
                 'phone'      => '085169427857',
                 'pangkat'    => 'Pengatur Muda PPPK V',
                 'jabatan'    => 'PFR Ahli Muda',
@@ -141,7 +142,7 @@ class UserSeeder extends Seeder
                     'slug'       => $pegawai['slug'],
                     'email'      => $pegawai['email'],
                     'password'   => Hash::make('password123'), // Password default untuk seluruh pegawai
-                    'role'       => 'pegawai',
+                    'role'       => $pegawai['role'] ?? 'pegawai', // Default role jika tidak ditentukan
                     'phone'      => $pegawai['phone'],
                     'pangkat'    => $pegawai['pangkat'],
                     'jabatan'    => $pegawai['jabatan'],

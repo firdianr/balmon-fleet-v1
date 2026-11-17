@@ -52,17 +52,30 @@ class BookingCompletedMail extends Mailable implements ShouldQueue
         $booking = $this->booking;
         $slug = $booking->letter_slug;
 
-        $pdfFormulirPermohonan = Pdf::loadView('pdf.formulir-permohonan', compact('booking'))->setPaper('a4', 'portrait');
-        $attachments[] = Attachment::fromData(fn () => $pdfFormulirPermohonan->output(), '1_Formulir_Permohonan_' . $slug . '.pdf')->withMime('application/pdf');
+        $docMap = [
+            'formulir_peminjaman'   => "1_Formulir_Permohonan_{$slug}.pdf",
+            'bast_peminjaman'       => "2_BAST_Peminjaman_{$slug}.pdf",
+            'formulir_pengembalian' => "3_Formulir_Pengembalian_{$slug}.pdf",
+            'bast_pengembalian'     => "4_BAST_Pengembalian_{$slug}.pdf",
+        ];
 
-        $pdfBastPeminjaman = Pdf::loadView('pdf.bast-peminjaman', compact('booking'))->setPaper('a4', 'portrait');
-        $attachments[] = Attachment::fromData(fn () => $pdfBastPeminjaman->output(), '2_BAST_Peminjaman_' . $slug . '.pdf')->withMime('application/pdf');
+        foreach ($docMap as $docType => $filename) {
+            $archived = \App\Models\BookingDocument::where('booking_id', $booking->id)
+                ->where('document_type', $docType)
+                ->first();
 
-        $pdfFormulirPengembalian = Pdf::loadView('pdf.formulir-pengembalian', compact('booking'))->setPaper('a4', 'portrait');
-        $attachments[] = Attachment::fromData(fn () => $pdfFormulirPengembalian->output(), '3_Formulir_Pengembalian_' . $slug . '.pdf')->withMime('application/pdf');
+            if ($archived) {
+                $pdfBytes = \App\Services\DocumentArchiveService::getVerifiedDecryptedPdf($archived);
+            } else {
+                $viewName = \App\Services\DocumentArchiveService::getViewName($docType);
+                $pdfBytes = Pdf::loadView($viewName, ['booking' => $booking, 'auditMeta' => null])
+                    ->setPaper('a4', 'portrait')
+                    ->output();
+            }
 
-        $pdfBastPengembalian = Pdf::loadView('pdf.bast-pengembalian', compact('booking'))->setPaper('a4', 'portrait');
-        $attachments[] = Attachment::fromData(fn () => $pdfBastPengembalian->output(), '4_BAST_Pengembalian_' . $slug . '.pdf')->withMime('application/pdf');
+            $attachments[] = Attachment::fromData(fn () => $pdfBytes, $filename)
+                ->withMime('application/pdf');
+        }
 
         return $attachments;
     }

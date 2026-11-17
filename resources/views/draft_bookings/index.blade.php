@@ -1,12 +1,11 @@
 <x-app-layout>
-    <x-slot name="title">Permohonan Armada</x-slot>
+    <x-slot name="title">Booking Kendaraan</x-slot>
     <x-slot name="header">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
                 <h2 class="font-bold text-2xl text-gray-800 leading-tight">
-                    Permohonan Armada (Draft)
+                    Booking Kendaraan Dinas
                 </h2>
-                <p class="text-xs text-gray-500 mt-1">Daftar permohonan ketersediaan armada dan penugasan driver.</p>
             </div>
             <a href="{{ route('draft-bookings.create') }}" class="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md transition text-center flex items-center justify-center gap-2">
                 <svg class="w-4 h-4 text-white stroke-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

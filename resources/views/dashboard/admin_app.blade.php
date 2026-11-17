@@ -125,7 +125,7 @@
                     <p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Butuh Alokasi</p>
                     <p class="text-2xl font-black text-amber-600">
                         {{ ($pendingDraftsCount ?? 0) + ($pendingBookingsCount ?? 0) }}
-                        <span class="text-xs font-normal text-gray-400">({{ $pendingBookingsCount }} Booking / {{ $pendingDraftsCount }} Draft)</span>
+                        <span class="text-xs font-normal text-gray-400">({{ $pendingBookingsCount }} Peminjaman / {{ $pendingDraftsCount }} Booking)</span>
                     </p>
                 </div>
                 <div class="p-3 bg-amber-50 text-amber-600 rounded-2xl">
@@ -197,7 +197,7 @@
             <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
                 <div class="flex items-center justify-between border-b pb-3">
                     <div>
-                        <h3 class="font-bold text-sm text-gray-800">Draft Masuk</h3>
+                        <h3 class="font-bold text-sm text-gray-800">Booking Masuk</h3>
                         <p class="text-[11px] text-gray-500">Permohonan ketersediaan armada</p>
                     </div>
                     <a href="{{ route('draft-bookings.index') }}" class="text-xs font-bold text-amber-600 hover:text-amber-800">Lihat Semua &rarr;</a>

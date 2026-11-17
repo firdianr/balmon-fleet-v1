@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\VehicleController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentVerificationController;
 use App\Http\Controllers\DraftBookingController;
 use App\Http\Controllers\DriverCalendarController;
 use App\Http\Controllers\PdfController;
@@ -22,6 +23,10 @@ Route::get('/', fn () => redirect()->route('login'));
 Route::redirect('/register', '/login');
 Route::redirect('/forgot-password', '/login');
 Route::redirect('/reset-password', '/login');
+
+// Verifikasi Publik Keaslian Dokumen Elektronik & Hash SHA-256
+Route::get('/verify-document/{uuid}', [DocumentVerificationController::class, 'show'])->name('documents.verify');
+Route::post('/verify-document/{uuid}/check-file', [DocumentVerificationController::class, 'checkUploadedFile'])->name('documents.verify.check_file');
 
 /*
 |--------------------------------------------------------------------------

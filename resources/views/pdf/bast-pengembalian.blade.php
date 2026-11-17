@@ -285,8 +285,8 @@
         <tr>
             {{-- TTD Admin Lapangan / Checker --}}
             <td style="height: 75px; vertical-align: middle; text-align: center;">
-                @if($sigAdminLapReturn && $sigAdminLapReturn->signature_path && file_exists(public_path('storage/' . $sigAdminLapReturn->signature_path)))
-                    <img src="{{ public_path('storage/' . $sigAdminLapReturn->signature_path) }}" 
+                @if($sigAdminLapReturn && $sigAdminLapReturn->base64_image)
+                    <img src="{{ $sigAdminLapReturn->base64_image }}" 
                         style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
                 @else
                     <div style="height: 70px;"></div>
@@ -295,8 +295,8 @@
 
             {{-- TTD Pemohon --}}
             <td style="height: 75px; vertical-align: middle; text-align: center;">
-                @if($sigPemohonReturn && $sigPemohonReturn->signature_path && file_exists(public_path('storage/' . $sigPemohonReturn->signature_path)))
-                    <img src="{{ public_path('storage/' . $sigPemohonReturn->signature_path) }}" 
+                @if($sigPemohonReturn && $sigPemohonReturn->base64_image)
+                    <img src="{{ $sigPemohonReturn->base64_image }}" 
                         style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
                 @else
                     <div style="height: 70px;"></div>
@@ -321,8 +321,8 @@
 
                 {{-- TTD Approver --}}
                 <div style="height: 75px; vertical-align: middle; text-align: center; margin: 5px 0;">
-                    @if($sigApproverReturn && $sigApproverReturn->signature_path && file_exists(public_path('storage/' . $sigApproverReturn->signature_path)))
-                        <img src="{{ public_path('storage/' . $sigApproverReturn->signature_path) }}" 
+                    @if($sigApproverReturn && $sigApproverReturn->base64_image)
+                        <img src="{{ $sigApproverReturn->base64_image }}" 
                             style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
                     @else
                         <div style="height: 70px;"></div>
@@ -334,6 +334,6 @@
             </td>
         </tr>
     </table>
-
+    @include('pdf.partials.audit-trail')
 </body>
 </html>

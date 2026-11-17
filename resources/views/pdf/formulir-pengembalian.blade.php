@@ -130,8 +130,8 @@
         <tr>
             <td></td>
             <td style="height: 75px; vertical-align: middle; text-align: center;">
-                @if($sigPemohonReturn && $sigPemohonReturn->signature_path && file_exists(public_path('storage/' . $sigPemohonReturn->signature_path)))
-                    <img src="{{ public_path('storage/' . $sigPemohonReturn->signature_path) }}" 
+                @if($sigPemohonReturn && $sigPemohonReturn->base64_image)
+                    <img src="{{ $sigPemohonReturn->base64_image }}" 
                         style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
                 @else
                     <div style="height: 70px;"></div>
@@ -146,6 +146,6 @@
             </td>
         </tr>
     </table>
-
+    @include('pdf.partials.audit-trail')
 </body>
 </html>

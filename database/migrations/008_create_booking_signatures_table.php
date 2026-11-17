@@ -34,6 +34,8 @@ return new class extends Migration
 
             // Waktu Penandatanganan & Audit Trail
             $table->timestamp('signed_at')->useCurrent();
+            $table->string('ip_address', 45)->nullable();
+            $table->text('user_agent')->nullable();
             $table->timestamps();
 
             // Mencegah duplikasi TTD untuk peran & jenis dokumen yang sama pada 1 booking

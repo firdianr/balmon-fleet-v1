@@ -15,10 +15,684 @@
         </div>
     </x-slot>
 
-    <div class="pt-2 pb-6">
+    <script>
+        window.masterChecklistsData = {!! json_encode($masterChecklists ?? []) !!};
+    </script>
+
+    @php
+        $userId         = Auth::id();
+        $userRole       = Auth::user()->role;
+        $isOwner        = $booking->user_id === $userId;
+        $isAdmin        = in_array($userRole, ['admin_lap', 'admin_app']);
+        $isApprover     = $userRole === 'approver';
+        $participants   = is_array($booking->participants) ? $booking->participants : [];
+        $canOperateTrip = $isAdmin
+            || $booking->driver_id == $userId
+            || in_array($userId, $participants)
+            || in_array((string) $userId, $participants);
+
+        $hasAvailableActions =
+            ($booking->status === 'rejected' && $isOwner) ||
+            ($booking->status === 'pending' && $isOwner) ||
+            (in_array($booking->status, ['pending', 'waiting', 'approved']) && $isOwner) ||
+            ($booking->status === 'pending' && $isAdmin) ||
+            ($booking->status === 'waiting' && $isAdmin) ||
+            ($booking->status === 'waiting' && $isApprover) ||
+            ($booking->status === 'approved' && $canOperateTrip) ||
+            ($booking->status === 'trip_started' && ($isOwner || $isAdmin)) ||
+            ($booking->status === 'on_trip' && $canOperateTrip) ||
+            ($booking->status === 'trip_completed' && ($isOwner || $isAdmin)) ||
+            ($booking->status === 'returned' && $isAdmin) ||
+            ($booking->status === 'checked' && $isApprover);
+    @endphp
+
+    <div class="pt-2 pb-6"
+        x-data="{
+            booking: {{ Illuminate\Support\Js::from($booking) }},
+            selectedBooking: null,
+            vehicles: {{ Illuminate\Support\Js::from($availableVehicles ?? []) }},
+            drivers: {{ Illuminate\Support\Js::from($availableDrivers ?? []) }},
+            activeBookings: {{ Illuminate\Support\Js::from($activeBookings ?? []) }},
+            attendances: {{ Illuminate\Support\Js::from($attendances ?? []) }},
+            masterChecklists: window.masterChecklistsData || [],
+
+            canOperateTrip(booking) {
+                if (!booking) return false;
+                const userId = {{ Auth::id() }};
+                const userRole = '{{ Auth::user()->role }}';
+
+                if (['admin_lap', 'admin_app'].includes(userRole)) return true;
+                if (booking.driver_id == userId) return true;
+
+                const participants = Array.isArray(booking.participants) ? booking.participants : [];
+                return participants.includes(userId) || participants.includes(String(userId));
+            },
+
+            getAvailableVehicles() {
+                if (!this.selectedBooking) return this.vehicles;
+
+                const reqStart = new Date(this.selectedBooking.start_date);
+                const reqEnd   = new Date(this.selectedBooking.end_date);
+                const currentBookingId = this.selectedBooking.id;
+
+                return (this.vehicles || []).filter(vehicle => {
+                    const isConflict = (this.activeBookings || []).some(active => {
+                        if (active.id === currentBookingId) return false;
+                        if (active.vehicle_id !== vehicle.id) return false;
+
+                        const actStart = new Date(active.start_date);
+                        const actEnd   = new Date(active.end_date);
+
+                        return (reqStart <= actEnd && reqEnd >= actStart);
+                    });
+
+                    return !isConflict;
+                });
+            },
+
+            getAvailableDrivers() {
+                if (!this.selectedBooking) return { primaryDrivers: this.drivers, participants: [] };
+
+                const reqStart = new Date(this.selectedBooking.start_date);
+                const reqEnd   = new Date(this.selectedBooking.end_date);
+                const currentBookingId = this.selectedBooking.id;
+
+                const freeDrivers = (this.drivers || []).filter(driver => {
+                    if (driver.role !== 'driver') return false;
+
+                    const isBooked = (this.activeBookings || []).some(active => {
+                        if (String(active.id) === String(currentBookingId)) return false;
+                        if (!active.driver_id || String(active.driver_id) !== String(driver.id)) return false;
+
+                        const actStart = new Date(active.start_date);
+                        const actEnd   = new Date(active.end_date);
+
+                        return (reqStart <= actEnd && reqEnd >= actStart);
+                    });
+
+                    if (isBooked) return false;
+
+                    const isAbsent = (this.attendances || []).some(att => {
+                        if (!att.driver_id || String(att.driver_id) !== String(driver.id)) return false;
+
+                        const attStart = new Date(att.start_date);
+                        const attEnd   = new Date(att.end_date);
+
+                        return (reqStart <= attEnd && reqEnd >= attStart);
+                    });
+
+                    return !isAbsent;
+                });
+
+                const participantsList = this.selectedBooking.participants_users || [];
+
+                return {
+                    primaryDrivers: freeDrivers,
+                    participants: participantsList
+                };
+            },
+
+            getInitialChecklistItems() {
+                if (!Array.isArray(this.masterChecklists) || this.masterChecklists.length === 0) {
+                    return [];
+                }
+                return this.masterChecklists.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    category: item.category,
+                    is_checked: false
+                }));
+            },
+
+            checkDynamicIncidentStatus(formState) {
+                const items = formState.items || [];
+                const hasUncheckedItem = items.some(
+                    item => ['condition', 'completeness'].includes(item.category) && !item.is_checked
+                );
+                formState.hasIncident = hasUncheckedItem;
+            },
+
+            // --- MODAL REVIEW ADMIN LAPANGAN ---
+            showReviewModal: false,
+            reviewForm: {
+                action: 'approve',
+                vehicle_id: '',
+                driver_id: '',
+                admin_note: '',
+                signaturePad: null,
+                signatureData: '',
+                signatureError: '',
+            },
+
+            openReviewModal(booking) {
+                this.selectedBooking = booking;
+
+                if (booking.participants && Array.isArray(booking.participants)) {
+                    this.selectedBooking.participants_users = (this.drivers || []).filter(d =>
+                        booking.participants.includes(d.id) || booking.participants.includes(String(d.id))
+                    );
+                } else {
+                    this.selectedBooking.participants_users = [];
+                }
+
+                this.reviewForm.action = 'approve';
+                this.reviewForm.vehicle_id = booking.vehicle_id ? String(booking.vehicle_id) : '';
+                this.reviewForm.driver_id = booking.driver_id ? String(booking.driver_id) : '';
+                this.reviewForm.admin_note = booking.admin_note || '';
+                this.reviewForm.signatureError = '';
+                this.reviewForm.signatureData = '';
+
+                this.showReviewModal = true;
+                this.initReviewSignaturePad();
+            },
+
+            initReviewSignaturePad() {
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        const canvas = this.$refs.reviewSignatureCanvas;
+                        if (!canvas) return;
+
+                        const width = canvas.offsetWidth || canvas.parentElement.clientWidth || 400;
+                        const height = 144;
+
+                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                        canvas.width = width * ratio;
+                        canvas.height = height * ratio;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(ratio, ratio);
+
+                        const SignaturePadClass = window.SignaturePad || SignaturePad;
+
+                        if (!this.reviewForm.signaturePad) {
+                            this.reviewForm.signaturePad = new SignaturePadClass(canvas, {
+                                backgroundColor: 'rgb(255, 255, 255)',
+                                penColor: 'rgb(0, 0, 128)',
+                                minWidth: 1.5,
+                                maxWidth: 3.5
+                            });
+                        } else {
+                            this.reviewForm.signaturePad.clear();
+                        }
+                    }, 150);
+                });
+            },
+
+            clearReviewSignature() {
+                if (this.reviewForm.signaturePad) {
+                    this.reviewForm.signaturePad.clear();
+                    this.reviewForm.signatureError = '';
+                    this.reviewForm.signatureData = '';
+                }
+            },
+
+            submitReviewForm() {
+                if (this.reviewForm.action === 'approve') {
+                    const isCanvasEmpty = !this.reviewForm.signaturePad || this.reviewForm.signaturePad.isEmpty();
+
+                    if (isCanvasEmpty) {
+                        this.reviewForm.signatureError = 'Tanda tangan Admin Lapangan wajib dibubuhkan untuk menyetujui!';
+                        return;
+                    }
+
+                    this.reviewForm.signatureData = this.reviewForm.signaturePad.toDataURL('image/png');
+                    this.reviewForm.signatureError = '';
+                } else {
+                    this.reviewForm.signatureError = '';
+                    this.reviewForm.signatureData = '';
+                }
+
+                this.$nextTick(() => {
+                    this.$refs.reviewFormElement.submit();
+                });
+            },
+
+            // --- MODAL APPROVER REVIEW ---
+            showApproverModal: false,
+            showChecklistDetail: false,
+            approverActionType: '',
+            approverForm: {
+                action: 'approve',
+                admin_note: '',
+                signaturePad: null,
+                signatureData: '',
+                signatureError: '',
+            },
+
+            openApproverModal(booking, type) {
+                this.selectedBooking = booking;
+                this.approverActionType = type;
+                this.showChecklistDetail = false;
+                this.approverForm.action = 'approve';
+                this.approverForm.admin_note = '';
+                this.approverForm.signatureError = '';
+                this.approverForm.signatureData = '';
+
+                const activeLogId = booking.log?.id;
+                const allChecklists = booking.checklists || [];
+
+                if (type === 'waiting') {
+                    const vehicleChecklists = booking.vehicle?.checklists || [];
+                    const lastEndChecklist = vehicleChecklists.filter(c => c.type === 'end').slice(-1)[0];
+                    const fallbackChecklist = vehicleChecklists.slice(-1)[0];
+
+                    this.selectedBooking.displayChecklists = lastEndChecklist
+                        ? [lastEndChecklist]
+                        : (fallbackChecklist ? [fallbackChecklist] : []);
+                } else {
+                    const startChecklist = allChecklists.find(c => c.type === 'start' && c.vehicle_log_id === activeLogId)
+                        || allChecklists.filter(c => c.type === 'start').slice(-1)[0];
+
+                    const endChecklist = allChecklists.find(c => c.type === 'end' && c.vehicle_log_id === activeLogId)
+                        || allChecklists.filter(c => c.type === 'end').slice(-1)[0];
+
+                    const displayList = [];
+                    if (startChecklist) displayList.push(startChecklist);
+                    if (endChecklist) displayList.push(endChecklist);
+
+                    this.selectedBooking.displayChecklists = displayList;
+                }
+
+                const condNotes = booking.log?.condition_notes || {};
+                this.selectedBooking.startNotes = typeof condNotes === 'object' ? condNotes.start : null;
+                this.selectedBooking.endNotes   = typeof condNotes === 'object' ? condNotes.end : null;
+
+                this.selectedBooking.parsedStartPhotos = [];
+                this.selectedBooking.parsedEndPhotos   = [];
+
+                if (booking.log && booking.log.condition_photos) {
+                    let rawPhotos = booking.log.condition_photos;
+                    if (typeof rawPhotos === 'string') {
+                        try { rawPhotos = JSON.parse(rawPhotos); } catch (e) { rawPhotos = {}; }
+                    }
+
+                    this.selectedBooking.parsedStartPhotos = Array.isArray(rawPhotos?.start) ? rawPhotos.start : [];
+                    this.selectedBooking.parsedEndPhotos   = Array.isArray(rawPhotos?.end) ? rawPhotos.end : [];
+                }
+
+                this.showApproverModal = true;
+                this.initApproverSignaturePad();
+            },
+
+            initApproverSignaturePad() {
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        const canvas = this.$refs.approverSignatureCanvas;
+                        if (!canvas) return;
+
+                        const width = canvas.offsetWidth || canvas.parentElement.clientWidth || 400;
+                        const height = 144;
+
+                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                        canvas.width = width * ratio;
+                        canvas.height = height * ratio;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(ratio, ratio);
+
+                        const SignaturePadClass = window.SignaturePad || SignaturePad;
+
+                        if (!this.approverForm.signaturePad) {
+                            this.approverForm.signaturePad = new SignaturePadClass(canvas, {
+                                backgroundColor: 'rgb(255, 255, 255)',
+                                penColor: 'rgb(0, 0, 128)',
+                                minWidth: 1.5,
+                                maxWidth: 3.5
+                            });
+                        } else {
+                            this.approverForm.signaturePad.clear();
+                        }
+                    }, 150);
+                });
+            },
+
+            clearApproverSignature() {
+                if (this.approverForm.signaturePad) {
+                    this.approverForm.signaturePad.clear();
+                    this.approverForm.signatureError = '';
+                    this.approverForm.signatureData = '';
+                }
+            },
+
+            submitApproverReviewForm() {
+                if (this.approverForm.action === 'approve') {
+                    const isCanvasEmpty = !this.approverForm.signaturePad || this.approverForm.signaturePad.isEmpty();
+
+                    if (isCanvasEmpty) {
+                        this.approverForm.signatureError = 'Tanda tangan pengesahan Approver wajib dibubuhkan untuk menyetujui!';
+                        return;
+                    }
+
+                    this.approverForm.signatureData = this.approverForm.signaturePad.toDataURL('image/png');
+                    this.approverForm.signatureError = '';
+                } else {
+                    this.approverForm.signatureError = '';
+                    this.approverForm.signatureData = '';
+                }
+
+                this.$nextTick(() => {
+                    this.$refs.approverFormElement.submit();
+                });
+            },
+
+            // --- MODAL START TRIP ---
+            showStartTripModal: false,
+            startTripForm: {
+                letter_slug: '',
+                start_fuel_level: 'Full',
+                items: [],
+                hasIncident: false,
+                notes: ''
+            },
+
+            openStartTripModal(booking) {
+                this.selectedBooking = booking;
+                this.startTripForm.letter_slug = booking.letter_slug;
+                this.startTripForm.start_fuel_level = 'Full';
+                this.startTripForm.items = this.getInitialChecklistItems();
+                this.startTripForm.hasIncident = true;
+                this.startTripForm.notes = '';
+
+                this.showStartTripModal = true;
+            },
+
+            // --- MODAL TTD KEBERANGKATAN ---
+            showSignDepartureModal: false,
+            signDepartureForm: {
+                letter_slug: '',
+                signaturePad: null,
+                signatureData: '',
+                signatureError: ''
+            },
+
+            openSignDepartureModal(booking) {
+                this.selectedBooking = booking;
+                this.signDepartureForm.letter_slug = booking.letter_slug;
+                this.signDepartureForm.signatureError = '';
+                this.signDepartureForm.signatureData = '';
+                this.showSignDepartureModal = true;
+
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        const canvas = this.$refs.signDepartureCanvas;
+                        if (!canvas) return;
+                        const width = canvas.offsetWidth || canvas.parentElement.clientWidth || 400;
+                        const height = 144;
+                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                        canvas.width = width * ratio;
+                        canvas.height = height * ratio;
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(ratio, ratio);
+                        const SignaturePadClass = window.SignaturePad || SignaturePad;
+                        if (!this.signDepartureForm.signaturePad) {
+                            this.signDepartureForm.signaturePad = new SignaturePadClass(canvas, {
+                                backgroundColor: 'rgb(255, 255, 255)',
+                                penColor: 'rgb(0, 0, 128)',
+                                minWidth: 1.5,
+                                maxWidth: 3.5
+                            });
+                        } else {
+                            this.signDepartureForm.signaturePad.clear();
+                        }
+                    }, 150);
+                });
+            },
+
+            clearSignDeparture() {
+                if (this.signDepartureForm.signaturePad) {
+                    this.signDepartureForm.signaturePad.clear();
+                    this.signDepartureForm.signatureError = '';
+                }
+            },
+
+            submitSignDepartureForm() {
+                if (!this.signDepartureForm.signaturePad || this.signDepartureForm.signaturePad.isEmpty()) {
+                    this.signDepartureForm.signatureError = 'Tanda tangan pemohon wajib dibubuhkan!';
+                    return;
+                }
+                this.signDepartureForm.signatureError = '';
+                this.signDepartureForm.signatureData = this.signDepartureForm.signaturePad.toDataURL('image/png');
+                this.$nextTick(() => {
+                    this.$refs.signDepartureFormElement.submit();
+                });
+            },
+
+            // --- MODAL COMPLETE TRIP ---
+            showCompleteModal: false,
+            completeTripForm: {
+                letter_slug: '',
+                end_fuel_level: 'Full',
+                is_multi_day: false,
+                is_washed: false,
+                hasIncident: true,
+                condition_notes: '',
+                items: []
+            },
+
+            openCompleteModal(booking) {
+                this.selectedBooking = booking;
+                this.completeTripForm.letter_slug = booking.letter_slug;
+                this.completeTripForm.end_fuel_level = 'Full';
+
+                if (booking.start_date && booking.end_date) {
+                    const startDateStr = booking.start_date.substring(0, 10);
+                    const endDateStr = booking.end_date.substring(0, 10);
+                    const start = new Date(startDateStr);
+                    const end = new Date(endDateStr);
+                    const diffTime = end.getTime() - start.getTime();
+                    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                    this.completeTripForm.is_multi_day = diffDays >= 1;
+                } else {
+                    this.completeTripForm.is_multi_day = false;
+                }
+
+                this.completeTripForm.is_washed = false;
+                this.completeTripForm.items = this.getInitialChecklistItems();
+                this.completeTripForm.hasIncident = true;
+                this.completeTripForm.condition_notes = '';
+
+                this.showCompleteModal = true;
+            },
+
+            // --- MODAL TTD PENGEMBALIAN ---
+            showSignReturnModal: false,
+            signReturnForm: {
+                letter_slug: '',
+                return_letter_number: '',
+                signaturePad: null,
+                signatureData: '',
+                signatureError: ''
+            },
+
+            openSignReturnModal(booking) {
+                this.selectedBooking = booking;
+                this.signReturnForm.letter_slug = booking.letter_slug;
+                this.signReturnForm.return_letter_number = booking?.log?.return_letter_number || '';
+                this.signReturnForm.signatureError = '';
+                this.signReturnForm.signatureData = '';
+                this.showSignReturnModal = true;
+
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        const canvas = this.$refs.signReturnCanvas;
+                        if (!canvas) return;
+                        const width = canvas.offsetWidth || canvas.parentElement.clientWidth || 400;
+                        const height = 144;
+                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                        canvas.width = width * ratio;
+                        canvas.height = height * ratio;
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(ratio, ratio);
+                        const SignaturePadClass = window.SignaturePad || SignaturePad;
+                        if (!this.signReturnForm.signaturePad) {
+                            this.signReturnForm.signaturePad = new SignaturePadClass(canvas, {
+                                backgroundColor: 'rgb(255, 255, 255)',
+                                penColor: 'rgb(0, 0, 128)',
+                                minWidth: 1.5,
+                                maxWidth: 3.5
+                            });
+                        } else {
+                            this.signReturnForm.signaturePad.clear();
+                        }
+                    }, 150);
+                });
+            },
+
+            clearSignReturn() {
+                if (this.signReturnForm.signaturePad) {
+                    this.signReturnForm.signaturePad.clear();
+                    this.signReturnForm.signatureError = '';
+                }
+            },
+
+            submitSignReturnForm() {
+                if (!this.signReturnForm.signaturePad || this.signReturnForm.signaturePad.isEmpty()) {
+                    this.signReturnForm.signatureError = 'Tanda tangan pemohon wajib dibubuhkan!';
+                    return;
+                }
+
+                this.signReturnForm.signatureError = '';
+                this.signReturnForm.signatureData = this.signReturnForm.signaturePad.toDataURL('image/png');
+
+                this.$nextTick(() => {
+                    const formElement = this.$refs.signReturnFormElement;
+                    if (formElement) {
+                        HTMLFormElement.prototype.submit.call(formElement);
+                    }
+                });
+            },
+
+            // --- MODAL VERIFY RETURN (ADMIN LAPANGAN) ---
+            showVerifyReturnModal: false,
+            verifyReturnForm: {
+                items: [],
+                is_washed: false,
+                wash_receipt_photo: null,
+                admin_verification_notes: '',
+                signaturePad: null,
+                signatureData: '',
+                signatureError: '',
+            },
+
+            openVerifyReturnModal(booking) {
+                this.selectedBooking = booking;
+                const endChk = (booking.checklists || []).find(c => c.type === 'end') || {};
+
+                if (endChk.items && Array.isArray(endChk.items) && endChk.items.length > 0) {
+                    this.verifyReturnForm.items = JSON.parse(JSON.stringify(endChk.items));
+                } else {
+                    this.verifyReturnForm.items = this.getInitialChecklistItems();
+                }
+
+                this.verifyReturnForm.is_washed = Boolean(endChk.is_washed);
+                this.verifyReturnForm.wash_receipt_photo = endChk.wash_receipt_photo || null;
+                this.verifyReturnForm.admin_verification_notes = booking.log?.admin_verification_notes || '';
+
+                this.verifyReturnForm.signatureError = '';
+                this.verifyReturnForm.signatureData = '';
+
+                this.showVerifyReturnModal = true;
+                this.initVerifyReturnSignaturePad();
+            },
+
+            initVerifyReturnSignaturePad() {
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        const canvas = this.$refs.verifyReturnSignatureCanvas;
+                        if (!canvas) return;
+
+                        const width = canvas.offsetWidth || canvas.parentElement.clientWidth || 400;
+                        const height = 144;
+
+                        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                        canvas.width = width * ratio;
+                        canvas.height = height * ratio;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(ratio, ratio);
+
+                        const SignaturePadClass = window.SignaturePad || SignaturePad;
+
+                        if (!this.verifyReturnForm.signaturePad) {
+                            this.verifyReturnForm.signaturePad = new SignaturePadClass(canvas, {
+                                backgroundColor: 'rgb(255, 255, 255)',
+                                penColor: 'rgb(0, 0, 128)',
+                                minWidth: 1.5,
+                                maxWidth: 3.5
+                            });
+                        } else {
+                            this.verifyReturnForm.signaturePad.clear();
+                        }
+                    }, 150);
+                });
+            },
+
+            clearVerifyReturnSignature() {
+                if (this.verifyReturnForm.signaturePad) {
+                    this.verifyReturnForm.signaturePad.clear();
+                    this.verifyReturnForm.signatureError = '';
+                    this.verifyReturnForm.signatureData = '';
+                }
+            },
+
+            submitVerifyReturnForm() {
+                const isCanvasEmpty = !this.verifyReturnForm.signaturePad || this.verifyReturnForm.signaturePad.isEmpty();
+
+                if (isCanvasEmpty) {
+                    this.verifyReturnForm.signatureError = 'Tanda tangan verifikasi Admin Lapangan wajib dibubuhkan!';
+                    return;
+                }
+
+                this.verifyReturnForm.signatureData = this.verifyReturnForm.signaturePad.toDataURL('image/png');
+                this.verifyReturnForm.signatureError = '';
+
+                this.$nextTick(() => {
+                    this.$refs.verifyReturnFormElement.submit();
+                });
+            },
+
+            // --- MODAL PEMBATALAN ---
+            showCancelBookingModal: false,
+            cancelBookingForm: {
+                letter_slug: '',
+                letter_number: ''
+            },
+            openCancelBookingModal(booking) {
+                this.cancelBookingForm.letter_slug = booking.letter_slug;
+                this.cancelBookingForm.letter_number = booking.letter_number;
+                this.showCancelBookingModal = true;
+            },
+
+            showCancelApprovalModal: false,
+            cancelApprovalForm: {
+                letter_slug: '',
+                letter_number: '',
+                vehicle_name: '',
+                cancel_reason: ''
+            },
+            openCancelApprovalModal(booking) {
+                this.cancelApprovalForm.letter_slug = booking.letter_slug;
+                this.cancelApprovalForm.letter_number = booking.letter_number;
+                this.cancelApprovalForm.vehicle_name = booking.vehicle ? `${booking.vehicle.brand} ${booking.vehicle.model} (${booking.vehicle.plate_number})` : 'Armada Operasional';
+                this.cancelApprovalForm.cancel_reason = '';
+                this.showCancelApprovalModal = true;
+            },
+
+            formatDate(dateString) {
+                if (!dateString) return '-';
+                const date = new Date(dateString);
+                return date.toLocaleDateString('id-ID', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+        }">
         <div class="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
 
-            {{-- HEADER BANNER (UKURAN HURUF DIPERBESAR & LEBIH JELAS) --}}
+            {{-- HEADER BANNER --}}
             <div class="bg-blue-600 rounded-2xl p-6 sm:p-8 text-white shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-6 overflow-hidden">
                 <div class="flex flex-col sm:flex-row items-start sm:items-center gap-5 min-w-0 w-full md:w-auto">
                     <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-bold text-2xl sm:text-3xl border-2 border-white/30 shadow-inner shrink-0">
@@ -44,16 +718,34 @@
                 {{-- STATUS BADGE HEADER --}}
                 <div class="shrink-0 self-start md:self-center">
                     @switch($booking->status)
+                        @case('pending')
+                            <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-yellow-500/20 border border-yellow-300/40 text-yellow-100 font-bold text-sm sm:text-base backdrop-blur-md">
+                                <span class="w-2.5 h-2.5 rounded-full bg-yellow-300 animate-bounce"></span>
+                                Menunggu Review Admin
+                            </span>
+                            @break
                         @case('approved')
                             <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-300/40 text-emerald-100 font-bold text-sm sm:text-base backdrop-blur-md">
                                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                                 Disetujui (Approved)
                             </span>
                             @break
+                        @case('trip_started')
+                            <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-500/20 border border-teal-300/40 text-teal-100 font-bold text-sm sm:text-base backdrop-blur-md">
+                                <span class="w-2.5 h-2.5 rounded-full bg-teal-300 animate-pulse"></span>
+                                Menunggu TTD Keberangkatan
+                            </span>
+                            @break
                         @case('on_trip')
                             <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-300/40 text-cyan-100 font-bold text-sm sm:text-base backdrop-blur-md">
                                 <span class="w-2.5 h-2.5 rounded-full bg-cyan-300 animate-ping"></span>
                                 Dalam Perjalanan (On Trip)
+                            </span>
+                            @break
+                        @case('trip_completed')
+                            <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-500/20 border border-violet-300/40 text-violet-100 font-bold text-sm sm:text-base backdrop-blur-md">
+                                <span class="w-2.5 h-2.5 rounded-full bg-violet-300 animate-pulse"></span>
+                                Menunggu TTD Pengembalian
                             </span>
                             @break
                         @case('returned')
@@ -94,6 +786,192 @@
                     @endswitch
                 </div>
             </div>
+
+            {{-- PANEL AKSI OPERASIONAL (MUNCUL DINAMIS SESUAI ROLE & STATUS) --}}
+            @if($hasAvailableActions)
+                <div class="bg-white rounded-2xl border border-indigo-200/80 shadow-xs p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm sm:text-base font-bold text-gray-900">Tindakan / Aksi Operasional</h3>
+                            <p class="text-xs text-gray-500">Pilih tindakan lanjutan sesuai tahapan peminjaman kendaraan saat ini</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        {{-- 1. PERBAIKI PERMOHONAN DITOLAK (PEMOHON) --}}
+                        @if($booking->status === 'rejected' && $isOwner)
+                            <a href="{{ route('bookings.edit', $booking->letter_slug) }}"
+                               class="px-4 py-2.5 border border-amber-500/50 text-amber-700 bg-amber-50 hover:bg-amber-100 font-bold rounded-xl text-xs sm:text-sm inline-flex items-center gap-2 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current shrink-0 text-amber-600" viewBox="0 0 24 24">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                                <span>Perbaiki Permohonan</span>
+                            </a>
+                        @endif
+
+                        {{-- 2. EDIT PERMOHONAN PENDING (PEMOHON) --}}
+                        @if($booking->status === 'pending' && $isOwner)
+                            <a href="{{ route('bookings.edit', $booking->letter_slug) }}"
+                               class="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-bold rounded-xl text-xs sm:text-sm inline-flex items-center gap-2 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 20h9"/>
+                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                </svg>
+                                <span>Edit Permohonan</span>
+                            </a>
+                        @endif
+
+                        {{-- 3. ISI LOG KEBERANGKATAN (DRIVER / ADMIN / TIM) --}}
+                        @if($booking->status === 'approved' && $canOperateTrip)
+                            <button type="button"
+                                    @click="openStartTripModal(booking)"
+                                    class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs inline-flex items-center gap-2 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                                    <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/>
+                                </svg>
+                                <span>Isi Log Keberangkatan</span>
+                            </button>
+                        @endif
+
+                        {{-- 4. TTD KEBERANGKATAN (PEMOHON / ADMIN LAPANGAN) --}}
+                        @if($booking->status === 'trip_started' && ($isOwner || $isAdmin))
+                            <button type="button"
+                                    @click="openSignDepartureModal(booking)"
+                                    class="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs animate-pulse inline-flex items-center gap-2 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 20h9"/>
+                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                </svg>
+                                <span>TTD Keberangkatan</span>
+                            </button>
+                        @endif
+
+                        {{-- 5. ISI LOG KEPULANGAN (DRIVER / ADMIN / TIM) --}}
+                        @if($booking->status === 'on_trip' && $canOperateTrip)
+                            <button type="button"
+                                    @click="openCompleteModal(booking)"
+                                    class="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs inline-flex items-center gap-2 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                </svg>
+                                <span>Isi Log Kepulangan</span>
+                            </button>
+                        @endif
+
+                        {{-- 6. TTD PENGEMBALIAN (PEMOHON / ADMIN LAPANGAN) --}}
+                        @if($booking->status === 'trip_completed' && ($isOwner || $isAdmin))
+                            <button type="button"
+                                    @click="openSignReturnModal(booking)"
+                                    class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs animate-pulse inline-flex items-center gap-2 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 20h9"/>
+                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                </svg>
+                                <span>TTD Pengembalian</span>
+                            </button>
+                        @endif
+
+                        {{-- 7. AKSI ADMIN LAPANGAN --}}
+                        @if($isAdmin)
+                            @if($booking->status === 'pending')
+                                <button type="button"
+                                        @click="openReviewModal(booking)"
+                                        class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs inline-flex items-center gap-2 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                                        <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                                    </svg>
+                                    <span>Tinjau & Plot Armada</span>
+                                </button>
+                            @endif
+
+                            @if($booking->status === 'waiting')
+                                <button type="button"
+                                        @click="openReviewModal(booking)"
+                                        class="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold rounded-xl text-xs sm:text-sm inline-flex items-center gap-2 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                        <path d="M3 3v5h5"/>
+                                        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                                        <path d="M16 16h5v5"/>
+                                    </svg>
+                                    <span>Re-assign Armada</span>
+                                </button>
+                                <button type="button"
+                                        @click="openCancelApprovalModal(booking)"
+                                        class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold rounded-xl text-xs sm:text-sm inline-flex items-center gap-2 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-rose-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <line x1="15" y1="9" x2="9" y2="15"/>
+                                        <line x1="9" y1="9" x2="15" y2="15"/>
+                                    </svg>
+                                    <span>Batalkan Persetujuan</span>
+                                </button>
+                            @endif
+
+                            @if($booking->status === 'returned')
+                                <button type="button"
+                                        @click="openVerifyReturnModal(booking)"
+                                        class="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs inline-flex items-center gap-2 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                                        <path d="m9 14 2 2 4-4"/>
+                                    </svg>
+                                    <span>Tinjau Kepulangan</span>
+                                </button>
+                            @endif
+                        @endif
+
+                        {{-- 8. AKSI APPROVER --}}
+                        @if($isApprover)
+                            @if($booking->status === 'waiting')
+                                <button type="button"
+                                        @click="openApproverModal(booking, 'waiting')"
+                                        class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs inline-flex items-center gap-2 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                                        <path d="m9 14 2 2 4-4"/>
+                                    </svg>
+                                    <span>Tinjau & Setujui</span>
+                                </button>
+                            @endif
+
+                            @if($booking->status === 'checked')
+                                <button type="button"
+                                        @click="openApproverModal(booking, 'checked')"
+                                        class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs inline-flex items-center gap-2 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                        <polyline points="14 2 14 8 20 8"/>
+                                        <path d="m9 15 2 2 4-4"/>
+                                    </svg>
+                                    <span>Sahkan Pengembalian</span>
+                                </button>
+                            @endif
+                        @endif
+
+                        {{-- 9. BATALKAN PENGAJUAN (PEMOHON) --}}
+                        @if($isOwner && in_array($booking->status, ['pending', 'waiting', 'approved']))
+                            <button type="button"
+                                    @click="openCancelBookingModal(booking)"
+                                    class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold rounded-xl text-xs sm:text-sm inline-flex items-center gap-2 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-rose-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                                </svg>
+                                <span>Batalkan Pengajuan</span>
+                            </button>
+                        @endif
+                    </div>
+                </div>
+            @endif
 
             {{-- MAIN CONTENT GRID --}}
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -782,7 +1660,7 @@
                                         <span>Formulir Peminjaman</span>
                                     </a>
 
-                                    @if(in_array($booking->status, ['waiting', 'approved', 'on_trip', 'returned', 'checked', 'completed']))
+                                    @if(in_array($booking->status, ['waiting', 'approved', 'trip_started', 'on_trip','trip_completed', 'returned', 'checked', 'completed']))
                                         <a href="{{ route('bookings.pdf.bast_peminjaman', $booking->letter_slug) }}" target="_blank" 
                                         class="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-xl border border-emerald-200 transition">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-emerald-700 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
@@ -830,5 +1708,16 @@
             </div>
 
         </div>
+
+        {{-- IMPOR SELURUH MODAL OPERASIONAL --}}
+        @include('bookings.modals.review')
+        @include('bookings.modals.approver')
+        @include('bookings.modals.verify-return')
+        @include('bookings.modals.start-trip')
+        @include('bookings.modals.complete-trip')
+        @include('bookings.modals.sign-departure')
+        @include('bookings.modals.sign-return')
+        @include('bookings.modals.cancel-booking')
+        @include('bookings.modals.cancel-approval')
     </div>
 </x-app-layout>

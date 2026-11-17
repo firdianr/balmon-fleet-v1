@@ -205,65 +205,10 @@
                 </tr>
             </table>
         </li>
-        @php
-            $checklist = $booking->startChecklist ?? $booking->endChecklist;
-            $rawItems = [];
-            if ($checklist) {
-                $rawItems = is_array($checklist->items) 
-                    ? $checklist->items 
-                    : json_decode($checklist->items ?? '[]', true);
-            }
-
-            // Urutkan: Kelengkapan ('completeness') terlebih dahulu, baru Fisik Kendaraan ('condition')
-            $sortedItems = collect($rawItems)->sortBy(function ($item) {
-                return ($item['category'] ?? '') === 'completeness' ? 1 : 2;
-            })->values()->all();
-        @endphp
-        <li style="margin-bottom: 6px;">
-            Kendaraan dinas operasional/fungsional diserahkan dengan hasil pemeriksaan keberangkatan sebagai berikut:
-
-            <table style="width: 100%; border-collapse: collapse; margin-top: 6px; margin-bottom: 6px; font-size: 10.5px;">
-                <thead>
-                    <tr style="background-color: #f3f4f6; text-align: left;">
-                        <th style="border: 1px solid #cbd5e1; padding: 5px 7px;">Item Pemeriksaan</th>
-                        <th style="border: 1px solid #cbd5e1; padding: 5px 7px; width: 110px; text-align: center;">Kategori</th>
-                        <th style="border: 1px solid #cbd5e1; padding: 5px 7px; width: 120px; text-align: center;">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($sortedItems as $item)
-                        @php
-                            $isCondition = ($item['category'] ?? '') === 'condition';
-                            $isChecked   = !empty($item['is_checked']);
-                            
-                            // Tentukan teks status yang aman untuk dompdf (Tanpa Karakter Simbol Unicode)
-                            if ($isCondition) {
-                                $statusText = $isChecked ? 'Baik / Normal' : 'Bermasalah';
-                            } else {
-                                $statusText = $isChecked ? 'Ada / Lengkap' : 'Tidak Ada';
-                            }
-                        @endphp
-                        <tr>
-                            <td style="border: 1px solid #cbd5e1; padding: 4px 6px;">{{ $item['name'] }}</td>
-                            <td style="border: 1px solid #cbd5e1; padding: 4px 6px; text-align: center; color: #475569;">
-                                {{ $isCondition ? 'Fisik Kendaraan' : 'Kelengkapan' }}
-                            </td>
-                            <td style="border: 1px solid #cbd5e1; padding: 4px 6px; text-align: center; font-weight: bold; color: {{ $isChecked ? '#059669' : '#dc2626' }};">
-                                {{ $statusText }}
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="3" style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; color: #64748b;">
-                                Belum ada data checklist.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-
+        <li style="margin-bottom: 6px; text-align: justify;">
+            Kendaraan dinas operasional/fungsional beserta surat-surat kelengkapan kendaraan (STNK) dan perlengkapan standar diserahkan dalam keadaan baik dan laik jalan sesuai alokasi yang telah disetujui. Penanggung Jawab berhak untuk tidak menyerahkan kelengkapan kendaraan lainnya jika dinilai tidak diperlukan.
             <p style="margin-top: 4px; margin-bottom: 0;">
-                Penanggung Jawab berhak untuk tidak menyerahkan Kelengkapan kendaraan lainnya jika dinilai tidak diperlukan.
+                Rincian pemeriksaan kondisi fisik kendaraan, posisi bahan bakar (BBM), serta dokumentasi odometer saat serah terima kunci di garasi dicatat dan diverifikasi secara terpisah pada <strong>Log Operasional Keberangkatan (<em>Pre-Trip Inspection</em>)</strong> oleh Pengemudi/Petugas dan Pihak Kedua sebelum perjalanan dimulai.
             </p>
         </li>
     </ol>
@@ -396,8 +341,8 @@
         <tr>
             {{-- TTD Admin Lapangan (Pihak Pertama) --}}
             <td style="height: 75px; vertical-align: middle; text-align: center;">
-                @if($sigAdminLap && $sigAdminLap->signature_path && file_exists(public_path('storage/' . $sigAdminLap->signature_path)))
-                    <img src="{{ public_path('storage/' . $sigAdminLap->signature_path) }}" 
+                @if($sigAdminLap && $sigAdminLap->base64_image)
+                    <img src="{{ $sigAdminLap->base64_image }}" 
                         style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
                 @else
                     <div style="height: 70px;"></div>
@@ -406,8 +351,8 @@
 
             {{-- TTD Pemohon (Pihak Kedua) --}}
             <td style="height: 75px; vertical-align: middle; text-align: center;">
-                @if($sigPemohon && $sigPemohon->signature_path && file_exists(public_path('storage/' . $sigPemohon->signature_path)))
-                    <img src="{{ public_path('storage/' . $sigPemohon->signature_path) }}" 
+                @if($sigPemohon && $sigPemohon->base64_image)
+                    <img src="{{ $sigPemohon->base64_image }}" 
                         style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
                 @else
                     <div style="height: 70px;"></div>
@@ -432,8 +377,8 @@
 
                 {{-- TTD Approver (Mengetahui) --}}
                 <div style="height: 75px; vertical-align: middle; text-align: center; margin: 5px 0;">
-                    @if($sigApprover && $sigApprover->signature_path && file_exists(public_path('storage/' . $sigApprover->signature_path)))
-                        <img src="{{ public_path('storage/' . $sigApprover->signature_path) }}" 
+                    @if($sigApprover && $sigApprover->base64_image)
+                        <img src="{{ $sigApprover->base64_image }}" 
                             style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
                     @else
                         <div style="height: 70px;"></div>
@@ -445,6 +390,6 @@
             </td>
         </tr>
     </table>
-
+    @include('pdf.partials.audit-trail')
 </body>
 </html>

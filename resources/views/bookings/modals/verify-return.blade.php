@@ -252,14 +252,14 @@
             </div>
 
             <!-- SEKSI TANDA TANGAN ADMIN LAPANGAN -->
-            <div class="space-y-1.5 pt-2 border-t border-cyan-100 shrink-0">
-                <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="space-y-2 pt-2 border-t border-cyan-100 shrink-0">
+                <div class="flex items-center justify-between gap-2">
                     <label class="text-xs font-bold text-cyan-950 flex items-center gap-1 leading-snug">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-cyan-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 20h9"/>
                             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                         </svg>
-                        <span x-text="verifyReturnForm.existingSignatureUrl ? 'Tanda Tangan Verifikasi (Sudah Tersedia)' : 'Tanda Tangan Verifikasi Admin Lapangan'"></span> 
+                        <span>Tanda Tangan Verifikasi Admin Lapangan</span> 
                         <span class="text-rose-500">*</span>
                     </label>
 
@@ -275,15 +275,17 @@
                     </button>
                 </div>
 
-                {{-- Preview TTD Lama jika Admin sudah pernah TTD --}}
-                <template x-if="verifyReturnForm.existingSignatureUrl">
-                    <div class="mb-2 p-2 bg-cyan-50/50 border border-cyan-100 rounded-xl flex items-center justify-between gap-3">
-                        <div class="flex items-center gap-2">
-                            <img :src="verifyReturnForm.existingSignatureUrl" class="h-10 border bg-white rounded p-1 object-contain">
-                            <span class="text-[11px] font-semibold text-cyan-900">TTD Admin tersimpan. Coret canvas di bawah jika ingin memperbarui TTD.</span>
-                        </div>
+                {{-- Pemberitahuan Peruntukan & Keamanan TTD --}}
+                <div class="p-2.5 bg-cyan-50/70 border border-cyan-200/80 rounded-xl text-[11px] text-cyan-950 flex items-start gap-2 leading-relaxed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-cyan-600 fill-none stroke-current stroke-2 shrink-0 mt-0.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="m9 12 2 2 4-4"/>
+                    </svg>
+                    <div>
+                        <p><strong>Peruntukan:</strong> Pengesahan hasil pemeriksaan fisik &amp; kelengkapan kepulangan selaku <strong>Pihak Pertama</strong> pada draf <strong>BAST Pengembalian Kendaraan Dinas</strong>.</p>
+                        <p class="text-cyan-800/90 mt-0.5"><strong>Keamanan &amp; Enkripsi:</strong> Berkas TTD disimpan terisolasi di <em>private storage</em>. Setelah disahkan Pejabat Berwenang, dokumen PDF final akan dikunci menggunakan enkripsi <strong>AES-256-CBC</strong>, <em>checksum</em> <strong>SHA-256</strong>, serta <strong>QR Code Jejak Audit</strong> (NIP, waktu, &amp; IP perangkat).</p>
                     </div>
-                </template>
+                </div>
 
                 <div class="border-2 border-dashed border-gray-300 rounded-xl bg-white p-1 relative">
                     <canvas x-ref="verifyReturnSignatureCanvas" 

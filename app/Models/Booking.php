@@ -171,4 +171,9 @@ class Booking extends Model
             ->where('signer_role', $signerRole)
             ->first();
     }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(BookingDocument::class);
+    }
 }

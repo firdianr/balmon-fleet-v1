@@ -17,7 +17,7 @@
 
         {{-- 1. ACTION ALERTS FOR ADMIN LAPANGAN --}}
         
-        {{-- ALERT 1A: ALOKASI DRAFT (draft -> waiting / converted) --}}
+        {{-- ALERT 1A: ALOKASI BOOKING (draft -> waiting / converted) --}}
         @if(($pendingDraftsCount ?? 0) > 0)
             <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-4 shadow-xs">
                 <div class="flex items-center gap-3">
@@ -25,12 +25,12 @@
                         <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                     </div>
                     <div>
-                        <p class="text-xs font-bold text-amber-950">Ada {{ $pendingDraftsCount }} Permohonan Draft Menunggu Alokasi Ketersediaan</p>
-                        <p class="text-[11px] text-amber-800">Tentukan ketersediaan armada dan pengemudi untuk permohonan draft pegawai.</p>
+                        <p class="text-xs font-bold text-amber-950">Ada {{ $pendingDraftsCount }} Permohonan Booking Menunggu Alokasi Ketersediaan</p>
+                        <p class="text-[11px] text-amber-800">Tentukan armada dan pengemudi untuk permohonan booking dari pegawai.</p>
                     </div>
                 </div>
                 <a href="{{ route('draft-bookings.index') }}" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shrink-0">
-                    Alokasikan Draft &rarr;
+                    Proses Booking &rarr;
                 </a>
             </div>
         @endif
@@ -48,7 +48,7 @@
                     </div>
                 </div>
                 <a href="{{ route('bookings.index', ['status' => 'pending']) }}" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl transition shrink-0">
-                    Alokasikan Booking &rarr;
+                    Alokasikan Armada &rarr;
                 </a>
             </div>
         @endif
@@ -124,7 +124,7 @@
                     <p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Butuh Alokasi</p>
                     <p class="text-2xl font-black text-amber-600">
                         {{ ($pendingDraftsCount ?? 0) + ($pendingBookingsCount ?? 0) }}
-                        <span class="text-xs font-normal text-gray-400">({{ $pendingBookingsCount }} Booking / {{ $pendingDraftsCount }} Draft)</span>
+                        <span class="text-xs font-normal text-gray-400">({{ $pendingBookingsCount }} Peminjaman / {{ $pendingDraftsCount }} Booking)</span>
                     </p>
                 </div>
                 <div class="p-3 bg-amber-50 text-amber-600 rounded-2xl">
@@ -182,11 +182,11 @@
                 </div>
             </div>
 
-            {{-- TABEL KANAN (1 KOLOM): PERMOHONAN DRAFT TERBARU --}}
+            {{-- TABEL KANAN (1 KOLOM): PERMOHONAN BOOKING TERBARU --}}
             <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
                 <div class="flex items-center justify-between border-b pb-3">
                     <div>
-                        <h3 class="font-bold text-sm text-gray-800">Draft Masuk</h3>
+                        <h3 class="font-bold text-sm text-gray-800">Booking Masuk</h3>
                         <p class="text-[11px] text-gray-500">Permohonan ketersediaan armada</p>
                     </div>
                     <a href="{{ route('draft-bookings.index') }}" class="text-xs font-bold text-amber-600 hover:text-amber-800">Lihat Semua &rarr;</a>
@@ -201,7 +201,7 @@
                             <span class="text-gray-500 block truncate">{{ $d->destination }}</span>
                         </div>
                     @empty
-                        <p class="text-xs text-gray-400 italic">Tidak ada draft baru.</p>
+                        <p class="text-xs text-gray-400 italic">Tidak ada booking baru.</p>
                     @endforelse
                 </div>
             </div>

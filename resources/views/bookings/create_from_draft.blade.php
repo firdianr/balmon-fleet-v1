@@ -48,7 +48,7 @@
         isParsing: false,
         
         // Pilihan Jenis Dokumen (Surat Tugas / Nota Dinas)
-        documentType: 'surat_tugas',
+        documentType: '{{ old('letter_type', 'surat_tugas') }}',
 
         // Data Master Users
         users: {{ Illuminate\Support\Js::from($users) }},
@@ -144,7 +144,7 @@
 
         triggerHighlight() {
             this.$nextTick(() => {
-                const fields = ['letter_number', 'destination', 'purpose', 'single_date', 'start_date_multi', 'end_date_multi'];
+                const fields = ['document_type_section', 'letter_number', 'destination', 'purpose', 'single_date', 'start_date_multi', 'end_date_multi'];
                 fields.forEach(fieldId => {
                     const el = document.getElementById(fieldId);
                     if (el) {
@@ -166,8 +166,7 @@
             formData.append('_token', '{{ csrf_token() }}');
 
             this.isParsing = true;
-            const labelDoc = this.documentType === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas';
-            this.showToast('info', `Mengekstrak ${labelDoc}...`);
+            this.showToast('info', 'Menganalisis & mengekstrak dokumen...');
 
             try {
                 const response = await fetch('{{ route('bookings.parse_document') }}', {
@@ -179,6 +178,12 @@
 
                 if (result.success) {
                     const data = result.data;
+
+                    // Otomatis pilih radio button Surat Tugas / Nota Dinas
+                    if (data.letter_type && ['surat_tugas', 'nota_dinas'].includes(data.letter_type)) {
+                        this.documentType = data.letter_type;
+                    }
+
                     if (data.letter_number) this.letterNumber = data.letter_number;
                     if (data.letter_file) this.letterFile = data.letter_file;
                     if (data.destination) this.destination = data.destination;
@@ -211,7 +216,8 @@
                         this.selectedUserIds = data.user_ids.map(id => String(id));
                     }
 
-                    this.showToast('success', 'Autofill Berhasil!', `Data ${labelDoc} berhasil diekstrak.`);
+                    const detectedLabel = this.documentType === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas';
+                    this.showToast('success', 'Autofill Berhasil!', `Data ${detectedLabel} berhasil diekstrak.`);
                     this.triggerHighlight();
                 } else {
                     this.showToast('error', 'Gagal Membaca Dokumen', result.message || 'Terjadi kesalahan pada parsing file.');
@@ -336,7 +342,7 @@
                 </div>
 
                 {{-- PILIHAN JENIS SURAT --}}
-                <div class="pt-3 border-t border-indigo-200/60 flex items-center gap-6">
+                <div id="document_type_section" class="pt-3 px-2 pb-1 rounded-lg border border-transparent border-t-indigo-200/60 flex items-center gap-6">
                     <span class="text-xs font-bold text-indigo-950">Jenis Dokumen:</span>
                     <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-800">
                         <input type="radio" x-model="documentType" value="surat_tugas" class="text-indigo-600 focus:ring-indigo-500">
@@ -661,8 +667,8 @@
                     </div>
 
                     {{-- ARENA TANDA TANGAN (SIGNATURE PAD) --}}
-                    <div class="space-y-1.5 pt-1">
-                        <div class="flex items-center justify-between gap-2 mb-2">
+                    <div class="space-y-2 pt-1">
+                        <div class="flex items-center justify-between gap-2">
                             <label class="text-xs font-bold text-gray-700 flex items-center gap-1 leading-snug">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-indigo-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M12 20h9"/>
@@ -685,13 +691,24 @@
                             </button>
                         </div>
 
-                        <div class="border-2 border-dashed border-gray-300 rounded-xl bg-white p-1 relative">
-                            <canvas x-ref="signatureCanvas" 
-                                    style="mix-blend-mode: normal;"
-                                    class="w-full h-40 bg-white rounded-lg cursor-pointer touch-none block"></canvas>
+                        {{-- Pemberitahuan Peruntukan & Keamanan TTD --}}
+                        <div class="p-2.5 bg-indigo-50/70 border border-indigo-200/80 rounded-xl text-[11px] text-indigo-950 flex items-start gap-2 leading-relaxed">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-indigo-600 fill-none stroke-current stroke-2 shrink-0 mt-0.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                <path d="m9 12 2 2 4-4"/>
+                            </svg>
+                            <div>
+                                <p><strong>Peruntukan:</strong> Pengesahan pengajuan serta pernyataan tanggung jawab penggunaan kendaraan dinas selaku <strong>Pemohon</strong> pada <strong>Formulir Permohonan Peminjaman Kendaraan Dinas</strong>.</p>
+                                <p class="text-indigo-800/90 mt-0.5"><strong>Keamanan &amp; Enkripsi:</strong> Berkas TTD disimpan terisolasi di <em>private storage</em>. Setelah permohonan dikirim, dokumen PDF final <strong>Formulir Permohonan</strong> langsung dikunci secara permanen (<em>immutable</em>) menggunakan enkripsi <strong>AES-256-CBC</strong>, divalidasi <em>checksum</em> <strong>SHA-256</strong>, serta dilengkapi <strong>QR Code Jejak Audit</strong> (NIP, waktu, &amp; IP perangkat).</p>
+                            </div>
                         </div>
 
-                        {{-- Pesan Error Jika Belum TTD --}}
+                        <div class="border-2 border-dashed border-gray-300 rounded-xl bg-white p-1 relative">
+                            <canvas x-ref="signatureCanvas" 
+                                style="mix-blend-mode: normal;"
+                                class="w-full h-40 bg-white rounded-lg cursor-pointer touch-none block"></canvas>
+                        </div>
+
                         <template x-if="signatureError">
                             <p class="text-[11px] font-bold text-rose-600 mt-1" x-text="signatureError"></p>
                         </template>

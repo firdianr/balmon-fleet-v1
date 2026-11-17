@@ -2,7 +2,7 @@
     <x-slot name="title">Kelola Peminjaman</x-slot>
     <x-slot name="header">
         <h2 class="font-bold text-xl text-gray-800 leading-tight">
-            {{ __('Daftar Peminjaman Kendaraan') }}
+            {{ __('Daftar Perjalanan/Peminjaman Kendaraan Dinas') }}
         </h2>
     </x-slot>
     <script>
@@ -50,7 +50,6 @@
                 signaturePad: null,
                 signatureData: '',
                 signatureError: '',
-                existingSignatureUrl: null
             },
 
             // HELPER: Hak Akses Operasional Perjalanan (Driver, Admin, Anggota Tim)
@@ -74,8 +73,8 @@
                 const reqEnd   = new Date(this.selectedBooking.end_date);
                 const currentBookingId = this.selectedBooking.id;
 
-                return this.vehicles.filter(vehicle => {
-                    const isConflict = this.activeBookings.some(active => {
+                return (this.vehicles || []).filter(vehicle => {
+                    const isConflict = (this.activeBookings || []).some(active => {
                         if (active.id === currentBookingId) return false;
                         if (active.vehicle_id !== vehicle.id) return false;
 
@@ -176,16 +175,6 @@
                 this.reviewForm.signatureError = '';
                 this.reviewForm.signatureData = '';
 
-                const adminSignature = (booking.signatures || []).find(s => 
-                    s.signer_role === 'admin_lap' && s.document_type === 'bast_peminjaman'
-                );
-                
-                if (adminSignature && adminSignature.signature_path) {
-                    this.reviewForm.existingSignatureUrl = `/storage/${adminSignature.signature_path}`;
-                } else {
-                    this.reviewForm.existingSignatureUrl = null;
-                }
-
                 this.showReviewModal = true;
                 this.initReviewSignaturePad();
             },
@@ -233,16 +222,13 @@
             submitReviewForm() {
                 if (this.reviewForm.action === 'approve') {
                     const isCanvasEmpty = !this.reviewForm.signaturePad || this.reviewForm.signaturePad.isEmpty();
-                    
-                    if (!this.reviewForm.existingSignatureUrl && isCanvasEmpty) {
+
+                    if (isCanvasEmpty) {
                         this.reviewForm.signatureError = 'Tanda tangan Admin Lapangan wajib dibubuhkan untuk menyetujui!';
                         return;
                     }
 
-                    if (!isCanvasEmpty) {
-                        this.reviewForm.signatureData = this.reviewForm.signaturePad.toDataURL('image/png');
-                    }
-                    
+                    this.reviewForm.signatureData = this.reviewForm.signaturePad.toDataURL('image/png');
                     this.reviewForm.signatureError = '';
                 } else {
                     this.reviewForm.signatureError = '';
@@ -264,7 +250,6 @@
                 signaturePad: null,
                 signatureData: '',
                 signatureError: '',
-                existingSignatureUrl: null
             },
 
             openApproverModal(booking, type) {
@@ -318,13 +303,6 @@
                     this.selectedBooking.parsedEndPhotos   = Array.isArray(rawPhotos?.end) ? rawPhotos.end : [];
                 }
 
-                const targetDocType = (type === 'waiting') ? 'bast_peminjaman' : 'bast_pengembalian';
-                const existingSig = (booking.signatures || []).find(s => 
-                    s.signer_role === 'approver' && s.document_type === targetDocType
-                );
-
-                this.approverForm.existingSignatureUrl = existingSig?.signature_path ? `/storage/${existingSig.signature_path}` : null;
-
                 this.showApproverModal = true;
                 this.initApproverSignaturePad();
             },
@@ -372,16 +350,13 @@
             submitApproverReviewForm() {
                 if (this.approverForm.action === 'approve') {
                     const isCanvasEmpty = !this.approverForm.signaturePad || this.approverForm.signaturePad.isEmpty();
-                    
-                    if (!this.approverForm.existingSignatureUrl && isCanvasEmpty) {
+
+                    if (isCanvasEmpty) {
                         this.approverForm.signatureError = 'Tanda tangan pengesahan Approver wajib dibubuhkan untuk menyetujui!';
                         return;
                     }
 
-                    if (!isCanvasEmpty) {
-                        this.approverForm.signatureData = this.approverForm.signaturePad.toDataURL('image/png');
-                    }
-                    
+                    this.approverForm.signatureData = this.approverForm.signaturePad.toDataURL('image/png');
                     this.approverForm.signatureError = '';
                 } else {
                     this.approverForm.signatureError = '';
@@ -602,7 +577,6 @@
                 signaturePad: null,
                 signatureData: '',
                 signatureError: '',
-                existingSignatureUrl: null
             },
 
             openVerifyReturnModal(booking) {
@@ -621,16 +595,6 @@
                 
                 this.verifyReturnForm.signatureError = '';
                 this.verifyReturnForm.signatureData = '';
-
-                const existingSig = (booking.signatures || []).find(s => 
-                    s.signer_role === 'admin_lap' && s.document_type === 'bast_pengembalian'
-                );
-
-                if (existingSig && existingSig.signature_path) {
-                    this.verifyReturnForm.existingSignatureUrl = `/storage/${existingSig.signature_path}`;
-                } else {
-                    this.verifyReturnForm.existingSignatureUrl = null;
-                }
 
                 this.showVerifyReturnModal = true;
                 this.initVerifyReturnSignaturePad();
@@ -678,16 +642,13 @@
 
             submitVerifyReturnForm() {
                 const isCanvasEmpty = !this.verifyReturnForm.signaturePad || this.verifyReturnForm.signaturePad.isEmpty();
-                
-                if (!this.verifyReturnForm.existingSignatureUrl && isCanvasEmpty) {
+
+                if (isCanvasEmpty) {
                     this.verifyReturnForm.signatureError = 'Tanda tangan verifikasi Admin Lapangan wajib dibubuhkan!';
                     return;
                 }
 
-                if (!isCanvasEmpty) {
-                    this.verifyReturnForm.signatureData = this.verifyReturnForm.signaturePad.toDataURL('image/png');
-                }
-
+                this.verifyReturnForm.signatureData = this.verifyReturnForm.signaturePad.toDataURL('image/png');
                 this.verifyReturnForm.signatureError = '';
 
                 this.$nextTick(() => {

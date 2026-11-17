@@ -137,8 +137,8 @@
         <tr>
             <td></td>
             <td style="height: 75px; vertical-align: middle;">
-                @if($pemohonSignature && $pemohonSignature->signature_path && file_exists(public_path('storage/' . $pemohonSignature->signature_path)))
-                    <img src="{{ public_path('storage/' . $pemohonSignature->signature_path) }}" 
+                @if($pemohonSignature && $pemohonSignature->base64_image)
+                    <img src="{{ $pemohonSignature->base64_image }}" 
                         style="max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto;">
                 @else
                     <div style="height: 70px;"></div>
@@ -153,6 +153,6 @@
             </td>
         </tr>
     </table>
-
+    @include('pdf.partials.audit-trail')
 </body>
 </html>

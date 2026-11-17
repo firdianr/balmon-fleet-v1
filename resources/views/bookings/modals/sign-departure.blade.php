@@ -182,12 +182,24 @@
             </div>
 
             <!-- AREA TANDA TANGAN PEMOHON -->
-            <div class="space-y-1.5 pt-1 border-t border-gray-100">
+            <div class="space-y-2 pt-2 border-t border-gray-100">
                 <div class="flex items-center justify-between gap-2">
                     <label class="font-bold text-gray-800">Tanda Tangan Pemohon <span class="text-rose-500">*</span></label>
                     <button type="button" @click="clearSignDeparture()" class="px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold hover:bg-rose-100 transition">
                         Bersihkan
                     </button>
+                </div>
+
+                {{-- Pemberitahuan Peruntukan & Keamanan TTD --}}
+                <div class="p-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl text-[11px] text-emerald-950 flex items-start gap-2 leading-relaxed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-600 fill-none stroke-current stroke-2 shrink-0 mt-0.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="m9 12 2 2 4-4"/>
+                    </svg>
+                    <div>
+                        <p><strong>Peruntukan:</strong> Pengesahan serah terima awal kendaraan dinas selaku <strong>Pihak Kedua (Pemohon)</strong> pada <strong>BAST Peminjaman Kendaraan Dinas</strong>.</p>
+                        <p class="text-emerald-800/90 mt-0.5"><strong>Keamanan &amp; Enkripsi:</strong> Setelah disahkan, dokumen PDF <strong>BAST Peminjaman</strong> langsung dikunci secara permanen (<em>immutable</em>) menggunakan enkripsi <strong>AES-256-CBC</strong>, divalidasi <em>checksum</em> <strong>SHA-256</strong>, serta dilengkapi <strong>QR Code Jejak Audit</strong> (NIP, waktu, &amp; IP perangkat).</p>
+                    </div>
                 </div>
 
                 <div class="border-2 border-dashed border-gray-300 rounded-xl bg-white p-1">
