@@ -324,7 +324,12 @@
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div class="flex items-start gap-3">
                         <div class="p-2.5 bg-indigo-600 text-white rounded-lg shadow-xs shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
                         </div>
                         <div>
                             <h4 class="font-bold text-indigo-950 text-sm">Unggah Dokumen (Auto-Fill)</h4>
@@ -332,26 +337,60 @@
                         </div>
                     </div>
 
-                    <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition shrink-0" :class="{ 'opacity-50 cursor-not-allowed': isParsing }">
+                    <label class="cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition shrink-0 w-full sm:w-auto" :class="{ 'opacity-50 cursor-not-allowed': isParsing }">
                         <template x-if="!isParsing">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
                         </template>
                         <span x-text="isParsing ? 'Membaca Dokumen...' : 'Unggah PDF Dokumen'"></span>
                         <input type="file" accept="application/pdf" class="hidden" @change="handleFileUpload" :disabled="isParsing">
                     </label>
                 </div>
 
-                {{-- PILIHAN JENIS SURAT --}}
-                <div id="document_type_section" class="pt-3 px-2 pb-1 rounded-lg border border-transparent border-t-indigo-200/60 flex items-center gap-6">
-                    <span class="text-xs font-bold text-indigo-950">Jenis Dokumen:</span>
-                    <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-800">
-                        <input type="radio" x-model="documentType" value="surat_tugas" class="text-indigo-600 focus:ring-indigo-500">
-                        <span>Surat Tugas</span>
-                    </label>
-                    <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-800">
-                        <input type="radio" x-model="documentType" value="nota_dinas" class="text-indigo-600 focus:ring-indigo-500">
-                        <span>Nota Dinas</span>
-                    </label>
+                {{-- PILIHAN JENIS SURAT (CARD VISUAL) --}}
+                <div id="document_type_section" class="pt-3 border-t border-indigo-200/70 space-y-2.5">
+                    <span class="block text-xs font-bold text-indigo-950">Jenis Dokumen:</span>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {{-- CARD SURAT TUGAS --}}
+                        <label class="relative flex flex-col p-3.5 bg-white border-2 rounded-xl cursor-pointer transition hover:border-indigo-300"
+                            :class="documentType === 'surat_tugas' ? 'border-indigo-600 bg-indigo-50/40 ring-2 ring-indigo-500/20 shadow-2xs' : 'border-gray-200'">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <div class="flex items-center gap-2 font-bold text-xs sm:text-sm text-gray-900">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-indigo-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                                    </svg>
+                                    <span>Surat Tugas</span>
+                                </div>
+                                <input type="radio" name="document_type_radio" value="surat_tugas" x-model="documentType" class="text-indigo-600 focus:ring-indigo-500">
+                            </div>
+                            <p class="text-[11px] text-gray-500 leading-relaxed">
+                                Dokumen resmi Surat Tugas yang diterbitkan dan ditandatangani Pejabat.
+                            </p>
+                        </label>
+
+                        {{-- CARD NOTA DINAS --}}
+                        <label class="relative flex flex-col p-3.5 bg-white border-2 rounded-xl cursor-pointer transition hover:border-amber-300"
+                            :class="documentType === 'nota_dinas' ? 'border-amber-500 bg-amber-50/40 ring-2 ring-amber-500/20 shadow-2xs' : 'border-gray-200'">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <div class="flex items-center gap-2 font-bold text-xs sm:text-sm text-gray-900">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                        <polyline points="14 2 14 8 20 8"/>
+                                    </svg>
+                                    <span>Nota Dinas</span>
+                                </div>
+                                <input type="radio" name="document_type_radio" value="nota_dinas" x-model="documentType" class="text-amber-600 focus:ring-amber-500">
+                            </div>
+                            <p class="text-[11px] text-gray-500 leading-relaxed">
+                                Peminjaman berbasis Nota Dinas internal (Surat Tugas disusulkan saat pengembalian).
+                            </p>
+                        </label>
+                    </div>
                 </div>
             </div>
 

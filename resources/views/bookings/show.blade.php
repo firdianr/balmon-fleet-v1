@@ -804,7 +804,7 @@
 
                     <div class="flex items-center gap-2.5 flex-wrap">
                         {{-- 1. PERBAIKI PERMOHONAN DITOLAK (PEMOHON) --}}
-                        @if($booking->status === 'rejected' && $isOwner)
+                        {{-- @if($booking->status === 'rejected' && $isOwner)
                             <a href="{{ route('bookings.edit', $booking->letter_slug) }}"
                                class="px-4 py-2.5 border border-amber-500/50 text-amber-700 bg-amber-50 hover:bg-amber-100 font-bold rounded-xl text-xs sm:text-sm inline-flex items-center gap-2 transition">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current shrink-0 text-amber-600" viewBox="0 0 24 24">
@@ -812,10 +812,10 @@
                                 </svg>
                                 <span>Perbaiki Permohonan</span>
                             </a>
-                        @endif
+                        @endif --}}
 
                         {{-- 2. EDIT PERMOHONAN PENDING (PEMOHON) --}}
-                        @if($booking->status === 'pending' && $isOwner)
+                        {{-- @if($booking->status === 'pending' && $isOwner)
                             <a href="{{ route('bookings.edit', $booking->letter_slug) }}"
                                class="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-bold rounded-xl text-xs sm:text-sm inline-flex items-center gap-2 transition">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
@@ -824,7 +824,7 @@
                                 </svg>
                                 <span>Edit Permohonan</span>
                             </a>
-                        @endif
+                        @endif --}}
 
                         {{-- 3. ISI LOG KEBERANGKATAN (DRIVER / ADMIN / TIM) --}}
                         @if($booking->status === 'approved' && $canOperateTrip)

@@ -17,6 +17,11 @@
 
         {{-- 1. WIDGET HEALTH CHECK REAL-TIME (DINAMIS) --}}
         @if(isset($systemHealth))
+            @php
+                $waState = $systemHealth['whatsapp_detail']['state'] ?? ($systemHealth['whatsapp'] ? 'open' : 'offline');
+                $isWaWarning = in_array($waState, ['qr', 'connecting', 'starting']);
+            @endphp
+
             <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
                 <div class="flex items-center justify-between border-b pb-3">
                     <h3 class="font-bold text-sm text-gray-800 flex items-center gap-2">
@@ -38,21 +43,32 @@
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    {{-- WA GATEWAY STATUS --}}
-                    <div class="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
-                        <div>
-                            <span class="text-gray-500 font-semibold block">Notification Engine (WhatssApp)</span>
+                    {{-- WA GATEWAY STATUS (DINAMIS: HIJAU / KUNING / MERAH) --}}
+                    <div class="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between gap-2">
+                        <div class="min-w-0">
+                            <span class="text-gray-500 font-semibold block">Notification Engine (WhatsApp)</span>
                             @if($systemHealth['whatsapp'])
-                                <span class="font-bold text-emerald-600 flex items-center gap-1 mt-0.5">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Terhubung (Connected)
+                                <span class="font-bold text-emerald-600 flex items-center gap-1.5 mt-0.5">
+                                    <span class="w-2 h-2 shrink-0 rounded-full bg-emerald-500"></span>
+                                    <span class="truncate">{{ $systemHealth['whatsapp_detail']['message'] ?? 'Terhubung (Connected)' }}</span>
+                                </span>
+                            @elseif($isWaWarning)
+                                <span class="font-bold text-amber-600 flex items-center gap-1.5 mt-0.5">
+                                    <span class="w-2 h-2 shrink-0 rounded-full bg-amber-500 animate-pulse"></span>
+                                    <span class="truncate" title="{{ $systemHealth['whatsapp_detail']['message'] ?? '' }}">
+                                        {{ $systemHealth['whatsapp_detail']['message'] ?? 'Menunggu Koneksi...' }}
+                                    </span>
                                 </span>
                             @else
-                                <span class="font-bold text-rose-600 flex items-center gap-1 mt-0.5">
-                                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> Terputus (Disconnected)
+                                <span class="font-bold text-rose-600 flex items-center gap-1.5 mt-0.5">
+                                    <span class="w-2 h-2 shrink-0 rounded-full bg-rose-500"></span>
+                                    <span class="truncate" title="{{ $systemHealth['whatsapp_detail']['message'] ?? '' }}">
+                                        {{ $systemHealth['whatsapp_detail']['message'] ?? 'Terputus (Disconnected)' }}
+                                    </span>
                                 </span>
                             @endif
                         </div>
-                        <div class="p-2 {{ $systemHealth['whatsapp'] ? 'bg-emerald-100/60 text-emerald-700' : 'bg-rose-100/60 text-rose-700' }} rounded-lg">
+                        <div class="p-2 shrink-0 rounded-lg {{ $systemHealth['whatsapp'] ? 'bg-emerald-100/60 text-emerald-700' : ($isWaWarning ? 'bg-amber-100/60 text-amber-700' : 'bg-rose-100/60 text-rose-700') }}">
                             <svg class="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                         </div>
                     </div>
@@ -62,11 +78,11 @@
                         <div>
                             <span class="text-gray-500 font-semibold block">Koneksi Database</span>
                             @if($systemHealth['database'])
-                                <span class="font-bold text-emerald-600 flex items-center gap-1 mt-0.5">
+                                <span class="font-bold text-emerald-600 flex items-center gap-1.5 mt-0.5">
                                     <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Normal (Connected)
                                 </span>
                             @else
-                                <span class="font-bold text-rose-600 flex items-center gap-1 mt-0.5">
+                                <span class="font-bold text-rose-600 flex items-center gap-1.5 mt-0.5">
                                     <span class="w-2 h-2 rounded-full bg-rose-500"></span> Connection Error
                                 </span>
                             @endif
@@ -81,11 +97,11 @@
                         <div>
                             <span class="text-gray-500 font-semibold block">File Storage & Signature</span>
                             @if($systemHealth['storage'])
-                                <span class="font-bold text-indigo-600 flex items-center gap-1 mt-0.5">
+                                <span class="font-bold text-indigo-600 flex items-center gap-1.5 mt-0.5">
                                     <span class="w-2 h-2 rounded-full bg-indigo-500"></span> Writable (Ready)
                                 </span>
                             @else
-                                <span class="font-bold text-rose-600 flex items-center gap-1 mt-0.5">
+                                <span class="font-bold text-rose-600 flex items-center gap-1.5 mt-0.5">
                                     <span class="w-2 h-2 rounded-full bg-rose-500"></span> Permission Denied
                                 </span>
                             @endif

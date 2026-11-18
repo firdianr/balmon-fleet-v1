@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Booking;
 use App\Models\DraftBooking;
 use App\Models\DriverAttendance;
 use App\Models\User;
@@ -44,8 +45,22 @@ class DraftBookingController extends Controller
         $attendances = DriverAttendance::where('process_status', 'approved')
             ->where('end_date', '>=', Carbon::today())
             ->get(['id', 'user_id', 'start_date', 'end_date', 'status']); // Select kolom yang dibutuhkan saja
+        
+        $activeBookings = Booking::whereIn('status', ['waiting', 'approved','trip_started', 'on_trip', 'trip_completed', 'returned', 'checked'])
+            ->whereNotNull('vehicle_id')
+            ->select('id', 'vehicle_id', 'driver_id', 'start_date', 'end_date')
+            ->get()
+            ->map(function ($b) {
+                return [
+                    'id'         => $b->id,
+                    'vehicle_id' => $b->vehicle_id,
+                    'driver_id'  => $b->driver_id,
+                    'start_date' => $b->start_date->format('Y-m-d H:i:s'),
+                    'end_date'   => $b->end_date->format('Y-m-d H:i:s'),
+                ];
+            });
 
-        return view('draft_bookings.index', compact('drafts', 'vehicles', 'drivers', 'attendances'));
+        return view('draft_bookings.index', compact('drafts', 'vehicles', 'drivers', 'attendances', 'activeBookings'));
     }
 
     /**
@@ -102,7 +117,7 @@ class DraftBookingController extends Controller
             $endDate     = Carbon::parse($draft->end_date)->format('d/m/Y H:i');
             $vehicleText = $vehicle ? "{$vehicle->brand} {$vehicle->model} ({$vehicle->plate_number})" : "Akan Ditentukan Admin Lapangan";
 
-            $msgAdmin = "📝 *PERMOHONAN DRAFT ARMADA BARU*\n\n"
+            $msgAdmin = "📝 *PERMOHONAN BOOKING ARMADA BARU*\n\n"
                 . "Pemohon: " . Auth::user()->name . "\n"
                 . "Penggerak Roda: " . strtoupper($draft->drivetrain) . "\n"
                 . "Unit Armada: {$vehicleText}\n"
@@ -231,9 +246,9 @@ class DraftBookingController extends Controller
             if (!empty($draftBooking->user?->phone)) {
                 $driverName = $draftBooking->driver ? $draftBooking->driver->name : 'Lepas Kunci (Tanpa Driver)';
                 
-                $waMessagePemohon = "✅ *PERMOHONAN DRAFT ARMADA DISETUJUI*\n\n"
+                $waMessagePemohon = "✅ *PERMOHONAN BOOKING ARMADA DISETUJUI*\n\n"
                     . "Halo *" . $draftBooking->user->name . "*,\n"
-                    . "Permohonan armada Anda melalui Draft telah ditinjau dan **DISETUJUI** oleh Admin Lapangan (" . $user->name . ").\n\n"
+                    . "Permohonan armada Anda melalui 'Booking' telah ditinjau dan **DISETUJUI** oleh Admin Lapangan (" . $user->name . ").\n\n"
                     . "📋 *Rincian Alokasi:*\n"
                     . "• Unit Armada: *" . $vehicle->brand . " " . $vehicle->model . " (" . $vehicle->plate_number . ")*\n"
                     . "• Pengemudi: *" . $driverName . "*\n\n"
@@ -244,15 +259,14 @@ class DraftBookingController extends Controller
 
             // --- 2. NOTIFIKASI WA KE DRIVER YANG DITUNJUK ---
             if ($draftBooking->driver_id && !empty($draftBooking->driver?->phone)) {
-                $waMessageDriver = "🚘 *PENUGASAN DRAFT ARMADA BARU*\n\n"
+                $waMessageDriver = "🚘 *PENUGASAN BARU*\n\n"
                     . "Halo *" . $draftBooking->driver->name . "*,\n"
-                    . "Anda telah ditunjuk oleh Admin Lapangan (" . $user->name . ") sebagai pengemudi untuk jadwal permohonan draft armada berikut:\n\n"
+                    . "Anda telah ditunjuk oleh Admin Lapangan (" . $user->name . ") sebagai pengemudi untuk jadwal permohonan booking armada berikut:\n\n"
                     . "📋 *Rincian Penugasan:*\n"
                     . "• Pemohon: *" . $draftBooking->user->name . "*\n"
                     . "• Unit Armada: *" . $vehicle->brand . " " . $vehicle->model . " (" . $vehicle->plate_number . ")*\n"
-                    . "• Tujuan: *" . $draftBooking->destination . "*\n"
                     . "• Tanggal: *" . date('d/m/Y H:i', strtotime($draftBooking->start_date)) . " s.d. " . date('d/m/Y H:i', strtotime($draftBooking->end_date)) . "*\n\n"
-                    . "Mohon persiapkan diri dan pantau pembaruan status peminjaman formal selanjutnya di sistem Balmon Fleet.";
+                    . "Mohon persiapkan diri dan pantau pembaruan status peminjaman selanjutnya di sistem Balmon Fleet.";
 
                 WhatsAppService::sendMessage($draftBooking->driver->phone, $waMessageDriver);
             }
@@ -269,9 +283,9 @@ class DraftBookingController extends Controller
 
             // --- NOTIFIKASI WA SAAT DITOLAK ---
             if (!empty($draftBooking->user?->phone)) {
-                $waMessage = "❌ *PERMOHONAN DRAFT ARMADA DITOLAK*\n\n"
+                $waMessage = "❌ *PERMOHONAN BOOKING ARMADA DITOLAK*\n\n"
                     . "Halo *" . $draftBooking->user->name . "*,\n"
-                    . "Mohon maaf, permohonan armada Anda melalui Draft telah **DITOLAK** oleh Admin Lapangan.\n\n"
+                    . "Mohon maaf, permohonan armada Anda melalui 'Booking' telah **DITOLAK** oleh Admin Lapangan.\n\n"
                     . "📝 *Alasan Penolakan:*\n"
                     . "\"" . $validated['admin_note'] . "\"\n\n"
                     . "Silakan periksa kembali permohonan Anda atau hubungi Admin Lapangan untuk informasi lebih lanjut.";

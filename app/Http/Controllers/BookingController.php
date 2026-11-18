@@ -125,7 +125,7 @@ class BookingController extends Controller
             ->toArray();
 
         // 5. Dataset Jadwal Booking Aktif (Untuk Filter Realtime Alpine.js)
-        $activeBookings = Booking::whereIn('status', ['waiting', 'approved', 'on_trip', 'returned', 'checked'])
+        $activeBookings = Booking::whereIn('status', ['waiting', 'approved','trip_started', 'on_trip', 'trip_completed', 'returned', 'checked'])
             ->whereNotNull('vehicle_id')
             ->select('id', 'vehicle_id', 'driver_id', 'start_date', 'end_date')
             ->get()
@@ -1461,7 +1461,7 @@ class BookingController extends Controller
         }
 
         $vehicles = Vehicle::where('status', '!=', 'maintenance')->where('type', 'monitoring')->get();
-        $users = User::whereIn('role', ['admin_lap', 'pegawai', 'driver'])->orderBy('name', 'asc')->get(['id', 'name', 'nip', 'jabatan', 'role']);
+        $users = User::whereIn('role', ['admin_lap', 'pegawai', 'driver', 'admin_app'])->orderBy('name', 'asc')->get(['id', 'name', 'nip', 'jabatan', 'role']);
 
         return view('bookings.edit', compact('booking', 'vehicles', 'users'));
     }

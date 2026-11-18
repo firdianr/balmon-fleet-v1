@@ -758,12 +758,12 @@
             <div class="block md:hidden space-y-3">
                 <template x-for="booking in bookings" :key="booking.id">
                     <div class="bg-white rounded-2xl border border-gray-200/80 p-4 shadow-xs space-y-3">
-                        <div class="flex items-start justify-between gap-2 border-b border-gray-100 pb-2.5">
-                            <div>
-                                <a :href="`/bookings/${booking.letter_slug}`" class="font-mono font-bold text-sm text-indigo-600 hover:underline block" x-text="booking.letter_number"></a>
-                                <p class="text-xs text-gray-500 font-medium mt-0.5" x-text="booking.user ? booking.user.name : '-'"></p>
+                        <div class="flex flex-wrap items-start justify-between gap-2 border-b border-gray-100 pb-2.5">
+                            <div class="min-w-0 flex-1">
+                                <a :href="`/bookings/${booking.letter_slug}`" class="font-mono font-bold text-sm text-indigo-600 hover:underline block break-words" x-text="booking.letter_number"></a>
+                                <p class="text-xs text-gray-500 font-medium mt-0.5 truncate" x-text="booking.user ? booking.user.name : '-'"></p>
                             </div>
-                            <span class="px-2.5 py-1 text-[11px] font-extrabold rounded-full shrink-0 uppercase tracking-wider whitespace-nowrap border"
+                            <span class="px-2.5 py-0.5 text-[10px] font-extrabold rounded-full shrink-0 uppercase tracking-wider whitespace-nowrap border"
                                 :class="{
                                     'bg-yellow-100 text-yellow-800 border-yellow-200': booking.status === 'pending',
                                     'bg-amber-100 text-amber-800 border-amber-200': booking.status === 'waiting',
@@ -805,7 +805,7 @@
                         <div class="pt-2 border-t border-gray-100 flex items-center justify-between gap-2" x-data="{ menuOpen: false }">
                             <div class="flex-1 flex items-center gap-1.5">
                                 {{-- PERBAIKI PERMOHONAN DITOLAK --}}
-                                <template x-if="booking.status === 'rejected' && booking.user_id === {{ Auth::id() }}">
+                                {{-- <template x-if="booking.status === 'rejected' && booking.user_id === {{ Auth::id() }}">
                                     <a :href="`/bookings/${booking.letter_slug}/edit`" 
                                     class="w-full py-2.5 px-4 bg-transparent border border-amber-600 text-amber-600 hover:bg-amber-600/10 font-semibold rounded-xl text-xs text-center inline-flex items-center justify-center gap-2 transition">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
@@ -813,7 +813,7 @@
                                         </svg>
                                         <span>Perbaiki Permohonan</span>
                                     </a>
-                                </template>
+                                </template> --}}
 
                                 {{-- 1. ISI LOG KEBERANGKATAN (DRIVER / ADMIN / TIM) --}}
                                 <template x-if="booking.status === 'approved' && canOperateTrip(booking)">
@@ -930,7 +930,7 @@
                                 </button>
 
                                 <div x-show="menuOpen" x-cloak class="absolute right-0 bottom-full mb-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-30 text-left text-xs space-y-0.5">
-                                    <template x-if="booking.user_id === {{ Auth::id() }} && booking.status === 'pending'">
+                                    {{-- <template x-if="booking.user_id === {{ Auth::id() }} && booking.status === 'pending'">
                                         <a :href="`/bookings/${booking.letter_slug}/edit`" class="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-amber-50 hover:text-amber-600 font-medium transition">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                                 <path d="M12 20h9"/>
@@ -938,7 +938,7 @@
                                             </svg>
                                             <span>Edit Permohonan</span>
                                         </a>
-                                    </template>
+                                    </template> --}}
 
                                     <template x-if="booking.user_id === {{ Auth::id() }} && ['pending', 'waiting', 'approved'].includes(booking.status)">
                                         <button type="button" @click="openCancelBookingModal(booking); menuOpen = false;" class="w-full flex items-center gap-2 px-4 py-2 text-amber-600 hover:bg-amber-50 font-bold transition text-left">
@@ -1044,7 +1044,7 @@
                                     <td class="p-3 text-center whitespace-nowrap">
                                         <div class="inline-flex items-center justify-center gap-1.5">
                                             {{-- PERBAIKI PERMOHONAN DITOLAK --}}
-                                            <template x-if="booking.status === 'rejected' && booking.user_id === {{ Auth::id() }}">
+                                            {{-- <template x-if="booking.status === 'rejected' && booking.user_id === {{ Auth::id() }}">
                                                 <a :href="`/bookings/${booking.letter_slug}/edit`" 
                                                 class="py-1.5 px-3 border border-amber-500/40 text-amber-700 bg-amber-50/50 hover:bg-amber-100/60 font-semibold rounded-xl text-xs text-center inline-flex items-center justify-center gap-2 transition">
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-current shrink-0 text-amber-600" viewBox="0 0 24 24">
@@ -1052,7 +1052,7 @@
                                                     </svg>
                                                     <span>Perbaiki Permohonan</span>
                                                 </a>
-                                            </template>
+                                            </template> --}}
 
                                             {{-- 1. ISI LOG KEBERANGKATAN --}}
                                             <template x-if="booking.status === 'approved' && canOperateTrip(booking)">
@@ -1170,7 +1170,7 @@
                                         </button>
 
                                         <div x-show="open" x-cloak class="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 text-left text-xs space-y-0.5">
-                                            <template x-if="booking.user_id === {{ Auth::id() }} && booking.status === 'pending'">
+                                            {{-- <template x-if="booking.user_id === {{ Auth::id() }} && booking.status === 'pending'">
                                                 <a :href="`/bookings/${booking.letter_slug}/edit`" class="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-amber-50 hover:text-amber-600 font-medium transition">
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                                         <path d="M12 20h9"/>
@@ -1178,7 +1178,7 @@
                                                     </svg>
                                                     <span>Edit Permohonan</span>
                                                 </a>
-                                            </template>
+                                            </template> --}}
 
                                             <template x-if="booking.user_id === {{ Auth::id() }} && ['pending', 'waiting', 'approved'].includes(booking.status)">
                                                 <button type="button" @click="openCancelBookingModal(booking); open = false;" class="w-full flex items-center gap-2 px-4 py-2 text-amber-600 hover:bg-amber-50 font-bold transition text-left">

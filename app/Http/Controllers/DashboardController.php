@@ -7,8 +7,10 @@ use App\Models\DraftBooking;
 use App\Models\DriverAttendance;
 use App\Models\Vehicle;
 use Carbon\Carbon;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 class DashboardController extends Controller
 {
@@ -44,20 +46,92 @@ class DashboardController extends Controller
                 $dbConnected = false;
             }
 
+            // Pengecekan Dinamis WA Gateway (Baileys Docker)
             $waConnected = false;
+            $waStatusDetail = [
+                'connected' => false,
+                'state'     => 'offline',
+                'pending_messages' => 0,
+                'message'   => 'Tidak dapat terhubung ke WA Gateway',
+                'user'      => null,
+            ];
+
             try {
-                $waConnected = !empty(config('services.whatsapp.api_key', env('PUSHOVER_TOKEN', true)));
+                $waHost = rtrim(config('services.wa_gateway.host', 'http://localhost'), '/');
+                $waPort = config('services.wa_gateway.port', '3000');
+
+                // Timeout 2 detik agar dashboard tetap cepat meski Docker mati
+                $response = Http::timeout(2)->get("{$waHost}:{$waPort}/status");
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    $state = $data['state'] ?? 'unknown';
+                    $pendingCount = (int) ($data['pending_messages'] ?? 0);
+                    $queueText    = $pendingCount > 0 ? " ({$pendingCount} pesan tertunda)" : '';
+
+                    if (!empty($data['connected']) && $state === 'open') {
+                        $waConnected = true;
+                        $waStatusDetail = [
+                            'connected' => true,
+                            'state'     => 'open',
+                            'pending_messages' => $pendingCount,
+                            'message'   => 'Terhubung (' . ($data['user']['name'] ?? 'Aktif') . ')' . $queueText,
+                            'user'      => $data['user'] ?? null,
+                        ];
+                    } elseif ($state === 'qr') {
+                        $waStatusDetail = [
+                            'connected' => false,
+                            'state'     => 'qr',
+                            'pending_messages' => $pendingCount,
+                            'message'   => 'Menunggu Scan QR Code di Terminal Docker',
+                            'user'      => null,
+                        ];
+                    } elseif ($state === 'connecting' || $state === 'starting') {
+                        $waStatusDetail = [
+                            'connected' => false,
+                            'state'     => $state,
+                            'pending_messages' => $pendingCount,
+                            'message'   => 'Sedang mencoba menghubungkan ke server WhatsApp...',
+                            'user'      => null,
+                        ];
+                    } else {
+                        $waStatusDetail = [
+                            'connected' => false,
+                            'state'     => $state,
+                            'pending_messages' => $pendingCount,
+                            'message'   => 'Sesi WhatsApp terputus (Logged Out / Closed)',
+                            'user'      => null,
+                        ];
+                    }
+                } else {
+                    $waStatusDetail['message'] = 'WA Gateway merespons error HTTP ' . $response->status();
+                }
+            } catch (ConnectionException $e) {
+                $waStatusDetail = [
+                    'connected' => false,
+                    'state'     => 'offline',
+                    'pending_messages' => 0,
+                    'message'   => 'Container Docker WA Gateway mati / tidak terjangkau di port ' . ($waPort ?? '3000'),
+                    'user'      => null,
+                ];
             } catch (\Exception $e) {
-                $waConnected = false;
+                $waStatusDetail = [
+                    'connected' => false,
+                    'state'     => 'error',
+                    'pending_messages' => 0,
+                    'message'   => 'Error internal: ' . $e->getMessage(),
+                    'user'      => null,
+                ];
             }
 
             $storageWritable = is_writable(storage_path('app/public'));
 
             $systemHealth = [
-                'database' => $dbConnected,
-                'whatsapp' => $waConnected,
-                'storage'  => $storageWritable,
-                'all_good' => $dbConnected && $waConnected && $storageWritable,
+                'database'        => $dbConnected,
+                'whatsapp'        => $waConnected,       // Tetap boolean agar tidak merusak view lama Anda
+                'whatsapp_detail' => $waStatusDetail,    // Data dinamis untuk ditampilkan di UI/tooltip
+                'storage'         => $storageWritable,
+                'all_good'        => $dbConnected && $waConnected && $storageWritable,
             ];
 
             return view('dashboard.admin_app', compact(
