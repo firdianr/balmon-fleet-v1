@@ -27,23 +27,37 @@
     <div class="py-8" x-data="{ 
         showConfirmModal: false,
         photoPreview: null,
-        initialStatus: '{{ $vehicle->status }}',
+        hasExistingPhoto: @js((bool) $vehicle->photo),
+        originalData: {
+            brand: @js($vehicle->brand ?? ''),
+            model: @js($vehicle->model ?? ''),
+            plate_number: @js($vehicle->plate_number ?? ''),
+            code: @js($vehicle->code ?? ''),
+            type: @js($vehicle->type ?? ''),
+            drivetrain: @js($vehicle->drivetrain ?? '2wd'),
+            capacity: @js((string) ($vehicle->capacity ?? '')),
+            fuel_type: @js($vehicle->fuel_type ?? ''),
+            status: @js($vehicle->status ?? ''),
+            notes: @js($vehicle->notes ?? '')
+        },
         formData: {
-            brand: '{{ old('brand', $vehicle->brand) }}',
-            model: '{{ old('model', $vehicle->model) }}',
-            plate_number: '{{ old('plate_number', $vehicle->plate_number) }}',
-            code: '{{ old('code', $vehicle->code) }}',
-            type: '{{ old('type', $vehicle->type) }}',
-            drivetrain: '{{ old('drivetrain', $vehicle->drivetrain ?? '2wd') }}', // <-- State baru
-            capacity: '{{ old('capacity', $vehicle->capacity) }}',
-            fuel_type: '{{ old('fuel_type', $vehicle->fuel_type) }}',
-            status: '{{ old('status', $vehicle->status) }}',
-            notes: '{{ old('notes', $vehicle->notes) }}'
+            brand: @js(old('brand', $vehicle->brand ?? '')),
+            model: @js(old('model', $vehicle->model ?? '')),
+            plate_number: @js(old('plate_number', $vehicle->plate_number ?? '')),
+            code: @js(old('code', $vehicle->code ?? '')),
+            type: @js(old('type', $vehicle->type ?? '')),
+            drivetrain: @js(old('drivetrain', $vehicle->drivetrain ?? '2wd')),
+            capacity: @js((string) old('capacity', $vehicle->capacity ?? '')),
+            fuel_type: @js(old('fuel_type', $vehicle->fuel_type ?? '')),
+            status: @js(old('status', $vehicle->status ?? '')),
+            notes: @js(old('notes', $vehicle->notes ?? ''))
         },
         previewImage(event) {
             const file = event.target.files[0];
             if (file) {
                 this.photoPreview = URL.createObjectURL(file);
+            } else {
+                this.photoPreview = null;
             }
         },
         getTypeLabel(type) {
@@ -56,6 +70,52 @@
                 'maintenance': 'Maintenance (Pemeliharaan)'
             };
             return labels[status] || status;
+        },
+        get changes() {
+            const fields = [
+                { key: 'brand', label: 'Merk / Pabrikan' },
+                { key: 'model', label: 'Tipe / Model' },
+                { key: 'plate_number', label: 'Nomor Plat Kendaraan', format: (val) => val ? val.toUpperCase() : '' },
+                { key: 'code', label: 'Kode Armada', format: (val) => val ? val.toUpperCase() : '' },
+                { key: 'type', label: 'Tipe Armada', format: (val) => val ? this.getTypeLabel(val) : '' },
+                { key: 'drivetrain', label: 'Sistem Penggerak (Drivetrain)', format: (val) => val ? val.toUpperCase() : '' },
+                { key: 'capacity', label: 'Kapasitas Penumpang', format: (val) => val ? `${val} Orang` : '' },
+                { key: 'fuel_type', label: 'Jenis Bahan Bakar' },
+                { key: 'status', label: 'Status Ketersediaan', format: (val) => val ? this.getStatusLabel(val) : '' },
+                { key: 'notes', label: 'Catatan / Keterangan Tambahan' }
+            ];
+
+            const diff = [];
+
+            fields.forEach(f => {
+                const oldRaw = (this.originalData[f.key] ?? '').toString().trim();
+                const newRaw = (this.formData[f.key] ?? '').toString().trim();
+
+                if (oldRaw !== newRaw) {
+                    const oldDisplay = f.format ? f.format(oldRaw) : oldRaw;
+                    const newDisplay = f.format ? f.format(newRaw) : newRaw;
+
+                    diff.push({
+                        key: f.key,
+                        label: f.label,
+                        oldVal: oldDisplay || '(Kosong)',
+                        newVal: newDisplay || '(Kosong)',
+                        isCleared: !newDisplay
+                    });
+                }
+            });
+
+            if (this.photoPreview) {
+                diff.push({
+                    key: 'photo',
+                    label: 'Foto Kendaraan',
+                    oldVal: this.hasExistingPhoto ? 'Foto Lama' : '(Belum Ada Foto)',
+                    newVal: 'Foto Baru Diunggah',
+                    isCleared: false
+                });
+            }
+
+            return diff;
         },
         submitForm() {
             $refs.editVehicleForm.submit();
@@ -150,6 +210,7 @@
                                 @enderror
                             </div>
 
+                            {{-- DRIVETRAIN --}}
                             <div>
                                 <label class="block text-sm font-bold text-gray-700">Sistem Penggerak (Drivetrain) <span class="text-red-500">*</span></label>
                                 <select name="drivetrain" x-model="formData.drivetrain" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-medium" required>
@@ -175,9 +236,30 @@
                             {{-- BAHAN BAKAR --}}
                             <div>
                                 <label class="block text-sm font-bold text-gray-700">Jenis Bahan Bakar <span class="text-red-500">*</span></label>
-                                <input type="text" name="fuel_type" x-model="formData.fuel_type" 
-                                    placeholder="Contoh: Pertalite, Pertamax, Dexlite, Solar" 
-                                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-medium" required>
+                                <select name="fuel_type" 
+                                        x-model="formData.fuel_type" 
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-medium" 
+                                        required>
+                                    <option value="" disabled>-- Pilih Jenis Bahan Bakar --</option>
+                                    
+                                    <optgroup label="Bensin (Gasoline)">
+                                        <option value="Pertalite">Pertalite</option>
+                                        <option value="Pertamax">Pertamax</option>
+                                        <option value="Pertamax Green 95">Pertamax Green 95</option>
+                                        <option value="Pertamax Turbo">Pertamax Turbo</option>
+                                    </optgroup>
+
+                                    <optgroup label="Diesel / Solar">
+                                        <option value="Solar">Solar / Biosolar</option>
+                                        <option value="Dexlite">Dexlite</option>
+                                        <option value="Pertamina Dex">Pertamina Dex</option>
+                                    </optgroup>
+
+                                    <optgroup label="Energi Alternatif">
+                                        <option value="Hybrid">Hybrid (Bensin + Listrik)</option>
+                                        <option value="Listrik (EV)">Listrik (EV)</option>
+                                    </optgroup>
+                                </select>
                                 @error('fuel_type')
                                     <p class="mt-1 text-xs text-red-600 font-semibold">{{ $message }}</p>
                                 @enderror
@@ -191,7 +273,7 @@
                                     <option value="borrowed">Borrowed (Sedang Dipinjam)</option>
                                     <option value="maintenance">Maintenance (Dalam Perawatan)</option>
                                 </select>
-                                <div class="mt-1.5 flex items-start gap-1.5 text-xs text-amber-700 font-medium bg-amber-50 p-2.5 rounded-lg border border-amber-200" x-show="formData.status === 'maintenance' && initialStatus !== 'maintenance'">
+                                <div class="mt-1.5 flex items-start gap-1.5 text-xs text-amber-700 font-medium bg-amber-50 p-2.5 rounded-lg border border-amber-200" x-show="formData.status === 'maintenance' && originalData.status !== 'maintenance'">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-600 stroke-2 shrink-0 mt-0.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
                                         <line x1="12" y1="9" x2="12" y2="13"/>
@@ -232,7 +314,7 @@
                                         </div>
                                     </template>
 
-                                    <template x-if="!photoPreview && '{{ $vehicle->photo }}'">
+                                    <template x-if="!photoPreview && hasExistingPhoto">
                                         <div class="relative w-full h-36 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-2xs">
                                             <span class="absolute top-2 left-2 bg-gray-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-2xs z-10">Foto Saat Ini</span>
                                             <img src="{{ asset('storage/' . $vehicle->photo) }}" class="w-full h-full object-cover">
@@ -269,7 +351,7 @@
             </div>
         </div>
 
-        {{-- MODAL KONFIRMASI PERUBAHAN DATA --}}
+        {{-- MODAL KONFIRMASI PERUBAHAN DATA (SMART DIFF) --}}
         <div x-show="showConfirmModal" 
              class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" 
              x-transition:enter="transition ease-out duration-200"
@@ -280,17 +362,20 @@
              x-transition:leave-end="opacity-0 scale-95"
              x-cloak>
             
-            <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden" @click.away="showConfirmModal = false">
+            <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col" @click.away="showConfirmModal = false">
                 
                 {{-- HEADER MODAL --}}
-                <div class="bg-amber-600 px-6 py-4 text-white flex justify-between items-center">
-                    <h3 class="font-bold text-base flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-white stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                        <span>Konfirmasi Perubahan Data Armada</span>
-                    </h3>
+                <div class="bg-amber-600 px-6 py-4 text-white flex justify-between items-center shrink-0">
+                    <div>
+                        <h3 class="font-bold text-base flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-white stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                            <span>Konfirmasi Perubahan Data Armada</span>
+                        </h3>
+                        <p class="text-xs text-amber-100 mt-0.5" x-text="`${originalData.brand} ${originalData.model} (${originalData.plate_number})`"></p>
+                    </div>
                     <button type="button" @click="showConfirmModal = false" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="18" y1="6" x2="6" y2="18"/>
@@ -300,9 +385,10 @@
                 </div>
 
                 {{-- BODY MODAL --}}
-                <div class="p-6 space-y-4">
+                <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                    
                     {{-- ALERT PERINGATAN JIKA RUBAH KE MAINTENANCE --}}
-                    <template x-if="formData.status === 'maintenance' && initialStatus !== 'maintenance'">
+                    <template x-if="formData.status === 'maintenance' && originalData.status !== 'maintenance'">
                         <div class="flex items-start gap-2.5 bg-amber-50 p-3 rounded-lg border border-amber-300 text-amber-900 text-xs">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-none stroke-amber-600 stroke-2 shrink-0 mt-0.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
@@ -315,46 +401,59 @@
                         </div>
                     </template>
 
-                    <p class="text-xs text-gray-500">Periksa kembali ringkasan data kendaraan yang telah diubah:</p>
-                    
-                    {{-- RINGKASAN DATA KENDARAAN --}}
-                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm space-y-2.5">
-                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
-                            <span class="text-gray-500 text-xs font-semibold">Merk & Model:</span>
-                            <span class="font-bold text-gray-900" x-text="(formData.brand || '-') + ' ' + (formData.model || '')"></span>
+                    {{-- KONDISI 1: TIDAK ADA PERUBAHAN --}}
+                    <template x-if="changes.length === 0">
+                        <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl text-center space-y-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mx-auto text-gray-400 fill-none stroke-current stroke-1.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            <p class="text-sm font-bold text-gray-800">Tidak Ada Perubahan Terdeteksi</p>
+                            <p class="text-xs text-gray-500">Semua spesifikasi dan data kendaraan masih sama dengan data yang tersimpan saat ini.</p>
                         </div>
-                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
-                            <span class="text-gray-500 text-xs font-semibold">Nomor Plat:</span>
-                            <span class="font-mono text-xs font-bold text-indigo-600 uppercase" x-text="formData.plate_number || '-'"></span>
+                    </template>
+
+                    {{-- KONDISI 2: ADA PERUBAHAN (TAMPILKAN DIFF SEBELUM VS SESUDAH) --}}
+                    <template x-if="changes.length > 0">
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs text-gray-600 font-medium">Ringkasan data armada yang diperbarui:</p>
+                                <span class="px-2.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-[11px] font-extrabold"
+                                      x-text="`${changes.length} Perubahan`"></span>
+                            </div>
+
+                            <div class="space-y-2.5">
+                                <template x-for="item in changes" :key="item.key">
+                                    <div class="p-3 bg-gray-50 rounded-xl border border-gray-200/90 space-y-1.5">
+                                        <span class="block text-[11px] font-extrabold uppercase tracking-wider text-gray-500" x-text="item.label"></span>
+                                        
+                                        <div class="flex flex-wrap items-center gap-2 text-xs">
+                                            {{-- NILAI SEBELUM --}}
+                                            <span class="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200/70 line-through break-all"
+                                                  x-text="item.oldVal"></span>
+
+                                            {{-- PANAH --}}
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-gray-400 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                                <polyline points="12 5 19 12 12 19"/>
+                                            </svg>
+
+                                            {{-- NILAI SESUDAH --}}
+                                            <span class="px-2 py-0.5 rounded font-bold break-all border"
+                                                  :class="item.isCleared 
+                                                      ? 'bg-gray-100 text-gray-600 border-gray-300 italic' 
+                                                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'"
+                                                  x-text="item.newVal"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
-                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
-                            <span class="text-gray-500 text-xs font-semibold">Kode Armada:</span>
-                            <span class="font-mono text-xs font-bold text-gray-900 uppercase" x-text="formData.code || '-'"></span>
-                        </div>
-                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
-                            <span class="text-gray-500 text-xs font-semibold">Tipe Armada:</span>
-                            <span class="font-bold text-gray-800" x-text="getTypeLabel(formData.type)"></span>
-                        </div>
-                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
-                            <span class="text-gray-500 text-xs font-semibold">Sistem Penggerak:</span>
-                            <span class="font-bold text-gray-800 uppercase" x-text="formData.drivetrain"></span>
-                        </div>
-                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
-                            <span class="text-gray-500 text-xs font-semibold">Kapasitas & BBM:</span>
-                            <span class="font-bold text-gray-800" x-text="(formData.capacity ? formData.capacity + ' Orang' : '-') + ' / ' + (formData.fuel_type || '-')"></span>
-                        </div>
-                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
-                            <span class="text-gray-500 text-xs font-semibold">Status Ketersediaan:</span>
-                            <span class="font-bold text-xs" x-text="getStatusLabel(formData.status)"></span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500 text-xs font-semibold">Status Foto:</span>
-                            <span class="font-semibold text-xs" :class="photoPreview ? 'text-indigo-600' : 'text-gray-500'" x-text="photoPreview ? 'Foto Baru Diunggah' : 'Tetap Memakai Foto Lama'"></span>
-                        </div>
-                    </div>
+                    </template>
 
                     {{-- TOMBOL AKSI MODAL --}}
-                    <div class="flex items-center gap-3 pt-2">
+                    <div class="flex items-center gap-3 pt-2 border-t border-gray-100 shrink-0">
                         <button type="button" 
                                 @click="showConfirmModal = false" 
                                 class="w-1/2 py-2.5 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 transition">
@@ -362,7 +461,8 @@
                         </button>
                         <button type="button" 
                                 @click="submitForm()" 
-                                class="w-1/2 py-2.5 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 shadow transition flex items-center justify-center gap-1.5">
+                                :disabled="changes.length === 0"
+                                class="w-1/2 py-2.5 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed shadow transition flex items-center justify-center gap-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="20 6 9 17 4 12"/>
                             </svg>

@@ -174,9 +174,30 @@
                             {{-- BAHAN BAKAR --}}
                             <div>
                                 <label class="block text-sm font-bold text-gray-700">Jenis Bahan Bakar <span class="text-red-500">*</span></label>
-                                <input type="text" name="fuel_type" x-model="formData.fuel_type" 
-                                    placeholder="Contoh: Pertalite, Pertamax, Dexlite, Solar" 
-                                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-medium" required>
+                                <select name="fuel_type" 
+                                        x-model="formData.fuel_type" 
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-medium" 
+                                        required>
+                                    <option value="" disabled>-- Pilih Jenis Bahan Bakar --</option>
+                                    
+                                    <optgroup label="Bensin (Gasoline)">
+                                        <option value="Pertalite">Pertalite</option>
+                                        <option value="Pertamax">Pertamax</option>
+                                        <option value="Pertamax Green 95">Pertamax Green 95</option>
+                                        <option value="Pertamax Turbo">Pertamax Turbo</option>
+                                    </optgroup>
+
+                                    <optgroup label="Diesel / Solar">
+                                        <option value="Solar">Solar / Biosolar</option>
+                                        <option value="Dexlite">Dexlite</option>
+                                        <option value="Pertamina Dex">Pertamina Dex</option>
+                                    </optgroup>
+
+                                    <optgroup label="Energi Alternatif">
+                                        <option value="Hybrid">Hybrid (Bensin + Listrik)</option>
+                                        <option value="Listrik (EV)">Listrik (EV)</option>
+                                    </optgroup>
+                                </select>
                                 @error('fuel_type')
                                     <p class="mt-1 text-xs text-red-600 font-semibold">{{ $message }}</p>
                                 @enderror

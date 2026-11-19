@@ -4,7 +4,6 @@
         <div class="grid grid-cols-1 md:grid-cols-2">
 
             {{-- CARD KIRI: INFORMASI SISTEM (BALMON FLEET) --}}
-            {{-- CARD KIRI: INFORMASI SISTEM (BALMON FLEET) --}}
             <div class="bg-blue-600 p-8 sm:p-10 text-white flex flex-col justify-between relative overflow-hidden">
                 {{-- Elemen Dekorasi Latar Belakang --}}
                 <div class="absolute -right-12 -bottom-12 w-60 h-60 bg-white/15 rounded-full blur-3xl pointer-events-none"></div>
@@ -64,23 +63,23 @@
                 <form method="POST" action="{{ route('login') }}">
                     @csrf
 
-                    <!-- EMAIL -->
+                    <!-- EMAIL ATAU NIP -->
                     <div class="relative mt-6">
-                        <input type="email" 
-                               name="email" 
-                               id="email" 
-                               value="{{ old('email') }}"
-                               placeholder="Email Address" 
-                               required 
-                               autofocus 
-                               autocomplete="username"
-                               class="peer w-full !border-t-0 !border-x-0 !border-b-2 border-slate-300 !rounded-none px-0 py-1.5 placeholder:text-transparent focus:!border-blue-600 focus:!ring-0 focus:outline-none text-slate-900 text-sm transition-colors @error('email') @enderror" />
+                        <input type="text" 
+                            name="login" 
+                            id="login" 
+                            value="{{ old('login') }}"
+                            placeholder="Email atau NIP" 
+                            required 
+                            autofocus 
+                            autocomplete="username"
+                            class="peer w-full !border-t-0 !border-x-0 !border-b-2 border-slate-300 !rounded-none px-0 py-1.5 placeholder:text-transparent focus:!border-blue-600 focus:!ring-0 focus:outline-none text-slate-900 text-sm transition-colors @error('login') !border-red-500 @enderror" />
                         
-                        <label for="email" 
-                               class="pointer-events-none absolute top-0 left-0 origin-left -translate-y-1/2 transform text-xs text-slate-600 opacity-75 transition-all duration-100 ease-in-out peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-placeholder-shown:text-slate-400 peer-focus:top-0 peer-focus:pl-0 peer-focus:text-xs peer-focus:text-blue-600 font-medium">
-                            Email Address
+                        <label for="login" 
+                            class="pointer-events-none absolute top-0 left-0 origin-left -translate-y-1/2 transform text-xs text-slate-600 opacity-75 transition-all duration-100 ease-in-out peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-placeholder-shown:text-slate-400 peer-focus:top-0 peer-focus:pl-0 peer-focus:text-xs peer-focus:text-blue-600 font-medium">
+                            Email atau NIP
                         </label>
-                        <x-input-error :messages="$errors->get('email')" class="mt-1" />
+                        <x-input-error :messages="$errors->get('login')" class="mt-1" />
                     </div>
 
                     <!-- PASSWORD -->
@@ -104,14 +103,15 @@
                                 aria-label="Tampilkan atau sembunyikan kata sandi"
                                 class="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 focus:outline-none p-1 transition-colors">
                             <!-- Icon Mata Terbuka (Password Terlihat) -->
-                            <svg x-show="showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" x-cloak>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            <svg x-show="showPassword" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-cloak>
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
                             </svg>
 
-                            <!-- Icon Mata Tertutup / Tertutup Garis (Password Tersembunyi) -->
-                            <svg x-show="!showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.018 10.018 0 013.682-.813c4.478 0 8.268 2.943 9.542 7a9.97 9.97 0 01-2.163 3.616m-2.122 2.12a8 8 0 01-11.314 0m11.314 0L3 3l18 18" />
+                            <!-- Icon Mata Tertutup (Password Tersembunyi) -->
+                            <svg x-show="!showPassword" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                                <line x1="1" y1="1" x2="23" y2="23"/>
                             </svg>
                         </button>
 

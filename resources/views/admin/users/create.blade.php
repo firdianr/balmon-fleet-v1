@@ -33,10 +33,10 @@
             nip: '{{ old('nip') }}',
             pangkat: '{{ old('pangkat') }}',
             jabatan: '{{ old('jabatan') }}',
+            department: '{{ old('department') }}',
             email: '{{ old('email') }}',
-            role: '{{ old('role') }}',
             phone: '{{ old('phone') }}',
-            department: '{{ old('department') }}'
+            role: '{{ old('role') }}'
         },
         getRoleLabel(role) {
             const labels = {
@@ -53,39 +53,20 @@
         }
     }">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
-            
-            {{-- RINGKASAN ERROR VALIDASI --}}
-            @if($errors->any())
-                <div class="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg shadow-sm">
-                    <div class="flex items-center mb-1">
-                        <svg class="w-5 h-5 mr-2 text-red-600 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                        <strong class="font-bold text-sm">Terjadi kesalahan pada inputan Anda:</strong>
-                    </div>
-                    <ul class="list-disc pl-9 text-xs space-y-1 font-medium">
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
 
             {{-- KARTU FORMULIR TAMBAH USER --}}
             <div class="bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm">
                 <form x-ref="addUserForm" action="{{ route('admin_app.users.store') }}" method="POST" @submit.prevent="showConfirmModal = true" class="space-y-6">
                     @csrf
 
-                    {{-- INFORMASI UTAMA PEGAWAI --}}
+                    {{-- 1. IDENTITAS & KEPEGAWAIAN --}}
                     <div>
                         <h3 class="text-base font-bold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 stroke-indigo-600 fill-none stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                                 <circle cx="12" cy="7" r="4"/>
                             </svg>
-                            <span>Identitas Pegawai</span>
+                            <span>Identitas & Data Kepegawaian</span>
                         </h3>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {{-- NAMA LENGKAP --}}
@@ -106,17 +87,6 @@
                                     placeholder="Contoh: 198804122014021001" 
                                     class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-mono font-medium">
                                 @error('nip')
-                                    <p class="mt-1 text-xs text-red-600 font-semibold">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            {{-- TELEPON / WA --}}
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700">Nomor WhatsApp Dinas</label>
-                                <input type="text" name="phone" x-model="formData.phone" 
-                                    placeholder="Contoh: 081234567890" 
-                                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-medium">
-                                @error('phone')
                                     <p class="mt-1 text-xs text-red-600 font-semibold">{{ $message }}</p>
                                 @enderror
                             </div>
@@ -202,7 +172,7 @@
                             </div>
 
                             {{-- SEKSI / DEPARTEMEN --}}
-                            <div class="sm:col-span-2">
+                            <div>
                                 <label class="block text-sm font-bold text-gray-700">Seksi / Subbagian / Tim Kerja</label>
                                 <input type="text" name="department" x-model="formData.department" 
                                     placeholder="Contoh: Tim Sarana dan Prasarana" 
@@ -214,14 +184,14 @@
                         </div>
                     </div>
 
-                    {{-- KONTAK & HAK AKSES SISTEM --}}
+                    {{-- 2. KONTAK DINAS --}}
                     <div>
                         <h3 class="text-base font-bold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 stroke-indigo-600 fill-none stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="2" y="4" width="20" height="16" rx="2"/>
                                 <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
                             </svg>
-                            <span>Kontak & Hak Akses Sistem</span>
+                            <span>Kontak Dinas</span>
                         </h3>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {{-- EMAIL DINAS --}}
@@ -235,6 +205,29 @@
                                 @enderror
                             </div>
 
+                            {{-- TELEPON / WA --}}
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700">Nomor WhatsApp Dinas</label>
+                                <input type="text" name="phone" x-model="formData.phone" 
+                                    placeholder="Contoh: 081234567890" 
+                                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-medium">
+                                @error('phone')
+                                    <p class="mt-1 text-xs text-red-600 font-semibold">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- 3. HAK AKSES & KEAMANAN AKUN --}}
+                    <div>
+                        <h3 class="text-base font-bold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 stroke-indigo-600 fill-none stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            <span>Hak Akses & Keamanan Akun</span>
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {{-- ROLE / HAK AKSES --}}
                             <div>
                                 <label class="block text-sm font-bold text-gray-700">Role / Hak Akses Sistem <span class="text-red-500">*</span></label>
@@ -250,46 +243,37 @@
                                     <p class="mt-1 text-xs text-red-600 font-semibold">{{ $message }}</p>
                                 @enderror
                             </div>
-                        </div>
-                    </div>
 
-                    {{-- KEAMANAN / PASSWORD --}}
-                    <div>
-                        <h3 class="text-base font-bold text-gray-900 border-b pb-2 mb-4 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 stroke-indigo-600 fill-none stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                            </svg>
-                            <span>Keamanan Akun</span>
-                        </h3>
-                        <div x-data="{ showPassword: false }">
-                            <label class="block text-sm font-bold text-gray-700">
-                                Password Akses <span class="text-red-500">*</span>
-                            </label>
-                            
-                            <div class="relative mt-1">
-                                <input :type="showPassword ? 'text' : 'password'" 
-                                    name="password" 
-                                    class="block w-full rounded-lg border-gray-300 pr-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-medium"
-                                    placeholder="••••••••" required>
+                            {{-- PASSWORD --}}
+                            <div x-data="{ showPassword: false }">
+                                <label class="block text-sm font-bold text-gray-700">
+                                    Password Akses <span class="text-red-500">*</span>
+                                </label>
+                                
+                                <div class="relative mt-1">
+                                    <input :type="showPassword ? 'text' : 'password'" 
+                                        name="password" 
+                                        class="block w-full rounded-lg border-gray-300 pr-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm font-medium"
+                                        placeholder="••••••••" required>
 
-                                <button type="button" 
-                                        @click="showPassword = !showPassword" 
-                                        class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
-                                        tabindex="-1">
-                                    <svg x-show="!showPassword" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                        <circle cx="12" cy="12" r="3"/>
-                                    </svg>
-                                    <svg x-show="showPassword" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-cloak>
-                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                                        <line x1="1" y1="1" x2="23" y2="23"/>
-                                    </svg>
-                                </button>
+                                    <button type="button" 
+                                            @click="showPassword = !showPassword" 
+                                            class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                                            tabindex="-1">
+                                        <svg x-show="!showPassword" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                        <svg x-show="showPassword" class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" x-cloak>
+                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                                            <line x1="1" y1="1" x2="23" y2="23"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                @error('password')
+                                    <p class="mt-1 text-xs text-red-600 font-semibold">{{ $message }}</p>
+                                @enderror
                             </div>
-                            @error('password')
-                                <p class="mt-1 text-xs text-red-600 font-semibold">{{ $message }}</p>
-                            @enderror
                         </div>
                     </div>
 
@@ -343,7 +327,7 @@
                 <div class="p-6 space-y-4">
                     <p class="text-xs text-gray-500">Periksa kembali ringkasan data sebelum disimpan ke dalam database sistem:</p>
                     
-                    {{-- RINGKASAN DATA --}}
+                    {{-- RINGKASAN DATA (URUT SESUAI FORM) --}}
                     <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm space-y-2.5">
                         <div class="flex justify-between border-b border-gray-200 pb-1.5">
                             <span class="text-gray-500 text-xs font-semibold">Nama Lengkap:</span>
@@ -356,6 +340,10 @@
                         <div class="flex justify-between border-b border-gray-200 pb-1.5">
                             <span class="text-gray-500 text-xs font-semibold">Pangkat / Jabatan:</span>
                             <span class="font-medium text-gray-800 text-right text-xs" x-text="(formData.jabatan || '-') + (formData.pangkat ? ' (' + formData.pangkat + ')' : '')"></span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-200 pb-1.5">
+                            <span class="text-gray-500 text-xs font-semibold">Seksi / Tim Kerja:</span>
+                            <span class="font-medium text-gray-800 text-right text-xs" x-text="formData.department || '-'"></span>
                         </div>
                         <div class="flex justify-between border-b border-gray-200 pb-1.5">
                             <span class="text-gray-500 text-xs font-semibold">Email Dinas:</span>

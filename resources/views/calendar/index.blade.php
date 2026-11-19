@@ -315,7 +315,6 @@
                     {{-- SEKSI MOBIL DIPINJAM / TERIKAT AGENDA --}}
                     <div>
                         <h4 class="text-xs font-black uppercase tracking-wider text-amber-800 bg-amber-50 px-3.5 py-2 rounded-lg border border-amber-200 mb-3 flex items-center gap-2">
-                            <!-- Icon Calendar Event Amber -->
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                                 <line x1="16" y1="2" x2="16" y2="6"/>
@@ -327,34 +326,45 @@
 
                         <div class="space-y-3">
                             <template x-for="item in bookedVehicles" :key="item.booking.id">
-                                <div class="p-3.5 bg-gray-50 border border-gray-200 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                                <div class="p-3.5 bg-gray-50 border border-gray-200 rounded-xl flex flex-col sm:flex-row gap-3.5 items-start sm:items-center justify-between overflow-hidden">
                                     
                                     {{-- GAMBAR DENGAN DETAILS ARMADA --}}
-                                    <div class="flex items-center gap-3 w-full sm:w-auto">
-                                        <div class="relative h-16 w-24 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-gray-200">
-                                            <template x-if="item.vehicle && item.vehicle.photo">
-                                                <img :src="'/storage/' + item.vehicle.photo" :alt="item.vehicle.brand" class="w-full h-full object-cover">
-                                            </template>
-                                            <template x-if="!item.vehicle || !item.vehicle.photo">
-                                                <div class="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50 text-[10px]">No Photo</div>
-                                            </template>
-                                            <div class="absolute top-0 left-0 w-7 h-7 bg-gray-900/70 backdrop-blur-2xs flex items-center justify-center text-white text-xs font-mono font-bold">
-                                                <span x-text="item.vehicle ? item.vehicle.code : '?'"></span>
+                                    <div class="flex items-start sm:items-center gap-3 w-full min-w-0 flex-1">
+                                        
+                                        {{-- TAMPILKAN THUMBNAIL HANYA JIKA ARMADA SUDAH DIALOKASIKAN --}}
+                                        <template x-if="item.vehicle">
+                                            <div class="relative h-16 w-20 sm:w-24 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-gray-200">
+                                                <template x-if="item.vehicle.photo">
+                                                    <img :src="'/storage/' + item.vehicle.photo" :alt="item.vehicle.brand" class="w-full h-full object-cover">
+                                                </template>
+                                                <template x-if="!item.vehicle.photo">
+                                                    <div class="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50 text-[10px]">No Photo</div>
+                                                </template>
+                                                <div class="absolute top-0 left-0 px-1.5 h-6 bg-gray-900/75 backdrop-blur-2xs flex items-center justify-center text-white text-[11px] font-mono font-bold rounded-br-md">
+                                                    <span x-text="item.vehicle.code || '-'"></span>
+                                                </div>
                                             </div>
-                                        </div>
+                                        </template>
 
-                                        <div class="space-y-0.5">
+                                        {{-- DETAIL TEKS (DENGAN MIN-W-0 AGAR TIDAK MELUBER) --}}
+                                        <div class="space-y-1 min-w-0 flex-1">
                                             <div class="flex items-center gap-1.5 flex-wrap">
-                                                <h5 class="font-bold text-sm text-gray-900" x-text="item.vehicle ? (item.vehicle.brand + ' ' + item.vehicle.model) : (item.booking.vehicle_name || 'Armada')"></h5>
-                                                <span class="px-1.5 py-0.5 bg-gray-900 text-white font-mono font-bold text-[10px] rounded" x-text="item.vehicle ? item.vehicle.plate_number : (item.booking.plate_number || '-')"></span>
+                                                <h5 class="font-bold text-sm text-gray-900 leading-tight" x-text="item.vehicle ? (item.vehicle.brand + ' ' + item.vehicle.model) : (item.booking.vehicle_name || 'Belum Ada Armada')"></h5>
+                                                
+                                                <template x-if="item.vehicle && item.vehicle.plate_number">
+                                                    <span class="px-1.5 py-0.5 bg-gray-900 text-white font-mono font-bold text-[10px] rounded" x-text="item.vehicle.plate_number"></span>
+                                                </template>
+
                                                 <span class="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded text-white" 
-                                                      :class="getStatusBgClass(item.booking.status)" 
-                                                      x-text="item.booking.status_label || item.booking.status"></span>
+                                                    :class="getStatusBgClass(item.booking.status)" 
+                                                    x-text="item.booking.status_label || item.booking.status"></span>
                                             </div>
-                                            <p class="text-xs text-gray-600">
+
+                                            <p class="text-xs text-gray-600 truncate">
                                                 Pemohon: <strong class="text-gray-900" x-text="item.booking.user_name || '-'"></strong>
                                             </p>
-                                            <p class="text-xs text-gray-500 truncate max-w-xs">
+
+                                            <p class="text-xs text-gray-500 line-clamp-2 sm:truncate">
                                                 Tujuan: <span x-text="item.booking.destination || '-'"></span>
                                             </p>
                                         </div>
@@ -364,7 +374,6 @@
                                     <button type="button" 
                                             @click="selectedBookingDetail = item.booking; showDetailModal = true" 
                                             class="w-full sm:w-auto px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-2xs transition flex items-center justify-center gap-1.5 shrink-0">
-                                        <!-- Icon Eye White -->
                                         <svg class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                             <circle cx="12" cy="12" r="3"/>
