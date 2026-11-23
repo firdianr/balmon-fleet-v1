@@ -423,7 +423,7 @@
                                 </div>
                                 <div>
                                     <p class="text-xs font-bold text-emerald-900">Berkas Dokumen Terhubung</p>
-                                    <p class="text-[11px] text-emerald-700 font-mono" x-text="letterFile"></p>
+                                    <p class="text-[11px] text-emerald-700 font-mono" x-text="letterFile ? letterFile.split('/').pop() : ''"></p>
                                 </div>
                             </div>
                             <button type="button" @click="letterFile = ''" class="text-xs text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded hover:bg-rose-50 transition">

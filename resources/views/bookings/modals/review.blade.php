@@ -342,16 +342,33 @@
                             </div>
                         </template>
 
-                        {{-- ALERT DRIVER KOSONG / TERSISA ANGGOTA TIM --}}
-                        <template x-if="(getAvailableDrivers()?.primaryDrivers?.length || 0) === 0">
+                        {{-- ALERT DRIVER RESMI KOSONG NAMUN ANGGOTA TIM TERSEDIA --}}
+                        <template x-if="(getAvailableDrivers()?.primaryDrivers?.length || 0) === 0 && (getAvailableDrivers()?.participants?.length || 0) > 0">
                             <p class="text-[11px] text-amber-800 font-medium p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0 text-amber-600" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="12" cy="12" r="10"/>
                                     <line x1="12" y1="16" x2="12" y2="12"/>
                                     <line x1="12" y1="8" x2="12.01" y2="8"/>
                                 </svg>
-                                <span>Seluruh driver resmi sedang bertugas. Anda dapat menunjuk Anggota Tim di atas sebagai pengemudi.</span>
+                                <span>Seluruh driver resmi sedang bertugas/tidak tersedia. Wajib memilih salah satu Anggota Tim di atas sebagai pengemudi.</span>
                             </p>
+                        </template>
+
+                        {{-- ALERT DRIVER RESMI & ANGGOTA TIM SAMA-SAMA KOSONG --}}
+                        <template x-if="(getAvailableDrivers()?.primaryDrivers?.length || 0) === 0 && (getAvailableDrivers()?.participants?.length || 0) === 0">
+                            <p class="text-[11px] text-rose-700 font-bold p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-current stroke-2 shrink-0 text-rose-600" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                <span>Tidak ada driver resmi maupun anggota tim yang tersedia pada jadwal ini. Pengemudi wajib diisi untuk menyetujui alokasi.</span>
+                            </p>
+                        </template>
+
+                        {{-- PESAN ERROR JIKA DRIVER BELUM DIPILIH SAAT SUBMIT --}}
+                        <template x-if="reviewForm.driverError">
+                            <p class="text-[11px] font-bold text-rose-600 mt-1" x-text="reviewForm.driverError"></p>
                         </template>
                     </div>
                 </div>

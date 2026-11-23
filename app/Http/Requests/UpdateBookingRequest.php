@@ -40,6 +40,7 @@ class UpdateBookingRequest extends FormRequest
             'participants.*'       => ['nullable', 'exists:users,id'],
             'letter_file'          => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
             'booking_type'         => ['nullable', 'string', 'in:single_day,multi_day'],
+            'signature'            => ['required', 'string'],
         ];
     }
 
@@ -67,6 +68,7 @@ class UpdateBookingRequest extends FormRequest
             'letter_file.file'       => 'Berkas Surat Tugas harus berupa dokumen file.',
             'letter_file.mimes'      => 'File Surat Tugas harus berupa file berformat PDF.',
             'letter_file.max'        => 'Ukuran file Surat Tugas tidak boleh lebih dari 5MB.',
+            'signature.required'     => 'Tanda tangan pemohon wajib dibubuhkan sebelum menyimpan perubahan permohonan.',
         ];
     }
 }

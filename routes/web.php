@@ -96,6 +96,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/formulir-pengembalian', [PdfController::class, 'printFormulirPengembalian'])->name('formulir_pengembalian');
             Route::get('/bast-pengembalian', [PdfController::class, 'printBastPengembalian'])->name('bast_pengembalian');
         });
+
+        Route::prefix('{booking:letter_slug}')->group(function () {
+            Route::get('/files/letter', [PdfController::class, 'streamLetterFile'])->name('files.letter');
+            Route::get('/files/return-letter', [PdfController::class, 'streamReturnLetterFile'])->name('files.return_letter');
+            Route::get('/signatures/{signature}', [PdfController::class, 'streamSignature'])->name('signatures.show');
+        });
     });
 
     // ------------------------------------------------------------------

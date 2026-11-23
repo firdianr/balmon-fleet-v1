@@ -219,9 +219,11 @@ class BookingController extends Controller
             'document_type' => 'nullable|in:surat_tugas,nota_dinas',
         ]);
 
+        $filePath = null;
+
         try {
             $file     = $request->file('document');
-            $filePath = $file->store('letters', 'public');
+            $filePath = $file->store('temp_letters', 'local');
 
             $pdfBase64 = base64_encode(file_get_contents($file->getPathname()));
 
@@ -302,6 +304,10 @@ class BookingController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            if ($filePath && Storage::disk('local')->exists($filePath)) {
+                Storage::disk('local')->delete($filePath);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal membaca dokumen via AI: ' . $e->getMessage()
@@ -334,11 +340,21 @@ class BookingController extends Controller
     public function store(StoreBookingRequest $request)
     {
         $validated = $request->validated();
+        $tempFilePath = null;
 
         if ($request->hasFile('letter_file')) {
-            $validated['letter_file'] = $request->file('letter_file')->store('letters', 'public');
+            if ($request->filled('letter_file_temp')) {
+                $oldTemp = (string) $request->input('letter_file_temp');
+                if (str_starts_with($oldTemp, 'temp_letters/') && !str_contains($oldTemp, '..') && Storage::disk('local')->exists($oldTemp)) {
+                    Storage::disk('local')->delete($oldTemp);
+                }
+            }
+            $tempFilePath = $request->file('letter_file')->store('temp_letters', 'local');
         } elseif ($request->filled('letter_file_temp')) {
-            $validated['letter_file'] = $request->input('letter_file_temp');
+            $candidate = (string) $request->input('letter_file_temp');
+            if (str_starts_with($candidate, 'temp_letters/') && !str_contains($candidate, '..') && Storage::disk('local')->exists($candidate)) {
+                $tempFilePath = $candidate;
+            }
         }
 
         $validated['letter_type'] = $request->input('letter_type', 'surat_tugas');
@@ -365,7 +381,7 @@ class BookingController extends Controller
 
             if ($isVehicleOverlapped) {
                 return back()
-                    ->withInput($request->except('letter_file') + ['letter_file_temp' => $validated['letter_file'] ?? null])
+                    ->withInput($request->except('letter_file') + ['letter_file_temp' => $tempFilePath])
                     ->withErrors([
                         'vehicle_id' => 'Mobil yang dipilih sudah memiliki jadwal peminjaman yang disetujui pada rentang waktu tersebut.'
                     ]);
@@ -390,7 +406,7 @@ class BookingController extends Controller
 
         if ($userOverlap) {
             return back()
-                ->withInput($request->except('letter_file') + ['letter_file_temp' => $validated['letter_file'] ?? null])
+                ->withInput($request->except('letter_file') + ['letter_file_temp' => $tempFilePath])
                 ->withErrors([
                     'participants' => 'Anda atau salah satu anggota tim yang dipilih sudah memiliki jadwal perjalanan dinas lain pada rentang waktu ini.'
                 ]);
@@ -398,10 +414,17 @@ class BookingController extends Controller
 
         if (!$request->filled('signature')) {
             return back()
-                ->withInput($request->except('letter_file') + ['letter_file_temp' => $validated['letter_file'] ?? null])
+                ->withInput($request->except('letter_file') + ['letter_file_temp' => $tempFilePath])
                 ->withErrors([
                     'signature' => 'Tanda tangan pemohon wajib dibubuhkan sebelum mengirimkan permohonan.'
                 ]);
+        }
+
+        // Pindahkan file dari temp_letters/ ke folder permanen letters/ setelah semua validasi lolos
+        if ($tempFilePath && Storage::disk('local')->exists($tempFilePath)) {
+            $finalPath = 'letters/' . basename($tempFilePath);
+            Storage::disk('local')->move($tempFilePath, $finalPath);
+            $validated['letter_file'] = $finalPath;
         }
 
         $validated['letter_slug'] = $this->generateUniqueSlug($validated['letter_number']);
@@ -452,11 +475,21 @@ class BookingController extends Controller
     public function storeFromDraft(StoreBookingRequest $request, DraftBooking $draftBooking)
     {
         $validated = $request->validated();
+        $tempFilePath = null;
 
         if ($request->hasFile('letter_file')) {
-            $validated['letter_file'] = $request->file('letter_file')->store('letters', 'public');
+            if ($request->filled('letter_file_temp')) {
+                $oldTemp = (string) $request->input('letter_file_temp');
+                if (str_starts_with($oldTemp, 'temp_letters/') && !str_contains($oldTemp, '..') && Storage::disk('local')->exists($oldTemp)) {
+                    Storage::disk('local')->delete($oldTemp);
+                }
+            }
+            $tempFilePath = $request->file('letter_file')->store('temp_letters', 'local');
         } elseif ($request->filled('letter_file_temp')) {
-            $validated['letter_file'] = $request->input('letter_file_temp');
+            $candidate = (string) $request->input('letter_file_temp');
+            if (str_starts_with($candidate, 'temp_letters/') && !str_contains($candidate, '..') && Storage::disk('local')->exists($candidate)) {
+                $tempFilePath = $candidate;
+            }
         }
 
         $validated['participants'] = isset($validated['participants']) && is_array($validated['participants'])
@@ -465,10 +498,17 @@ class BookingController extends Controller
 
         if (!$request->filled('signature')) {
             return back()
-                ->withInput($request->except('letter_file') + ['letter_file_temp' => $validated['letter_file'] ?? null])
+                ->withInput($request->except('letter_file') + ['letter_file_temp' => $tempFilePath])
                 ->withErrors([
                     'signature' => 'Tanda tangan pemohon wajib dibubuhkan sebelum mengonversi permohonan.'
                 ]);
+        }
+
+        // Pindahkan file dari temp_letters/ ke folder permanen letters/
+        if ($tempFilePath && Storage::disk('local')->exists($tempFilePath)) {
+            $finalPath = 'letters/' . basename($tempFilePath);
+            Storage::disk('local')->move($tempFilePath, $finalPath);
+            $validated['letter_file'] = $finalPath;
         }
 
         $validated['draft_booking_id'] = $draftBooking->id;
@@ -643,11 +683,12 @@ class BookingController extends Controller
         $request->validate([
             'action'     => 'required|in:approve,reject',
             'vehicle_id' => 'required_if:action,approve|nullable|exists:vehicles,id',
-            'driver_id'  => 'nullable|exists:users,id',
+            'driver_id'  => 'required_if:action,approve|nullable|exists:users,id',
             'admin_note' => 'required_if:action,reject|nullable|string|max:500',
             'signature'  => 'required_if:action,approve|nullable|string',
         ], [
             'vehicle_id.required_if' => 'Unit armada wajib dipilih saat melakukan alokasi.',
+            'driver_id.required_if'  => 'Driver / pengemudi wajib dipilih (dari driver resmi atau anggota tim).',
             'admin_note.required_if' => 'Alasan penolakan wajib diisi.',
             'signature.required_if'  => 'Tanda tangan pengesahan Admin Lapangan wajib dibubuhkan.',
         ]);
@@ -656,7 +697,37 @@ class BookingController extends Controller
             $startDate = $booking->start_date;
             $endDate   = $booking->end_date;
 
-            // Cek Bentrok Armada & Driver
+            // Validasi: Jika bukan role 'driver', wajib berasal dari pemohon atau anggota tim (participants)
+            $selectedDriver = User::findOrFail($request->driver_id);
+
+            if ($selectedDriver->role !== 'driver') {
+                $allowedMemberIds = collect($booking->participants ?? [])
+                    ->map(fn($id) => (int) $id)
+                    ->push((int) $booking->user_id)
+                    ->unique()
+                    ->all();
+
+                if (!in_array((int) $selectedDriver->id, $allowedMemberIds, true)) {
+                    throw ValidationException::withMessages([
+                        'driver_id' => 'Pengemudi non-driver hanya dapat dipilih dari pemohon atau anggota tim pada permohonan ini.'
+                    ]);
+                }
+            }
+
+            // Cek Ketidakhadiran Driver (Cuti / Izin / Sakit yang disetujui)
+            $isDriverAbsent = DriverAttendance::where('user_id', $request->driver_id)
+                ->where('process_status', 'approved')
+                ->where('start_date', '<=', $endDate)
+                ->where('end_date', '>=', $startDate)
+                ->exists();
+
+            if ($isDriverAbsent) {
+                throw ValidationException::withMessages([
+                    'driver_id' => 'Pengemudi yang dipilih sedang tidak hadir / cuti pada rentang jadwal tersebut.'
+                ]);
+            }
+
+            // Cek Bentrok Armada & Driver pada Booking lain
             $overlappingQuery = Booking::where('id', '!=', $booking->id)
                 ->whereIn('status', ['waiting', 'approved', 'on_trip', 'returned', 'checked'])
                 ->where(function ($query) use ($startDate, $endDate) {
@@ -664,7 +735,7 @@ class BookingController extends Controller
                         ->orWhereBetween('end_date', [$startDate, $endDate])
                         ->orWhere(function ($q) use ($startDate, $endDate) {
                             $q->where('start_date', '<=', $startDate)
-                            ->where('end_date', '>=', $endDate);
+                              ->where('end_date', '>=', $endDate);
                         });
                 });
 
@@ -680,16 +751,14 @@ class BookingController extends Controller
                 }
             }
 
-            if ($request->filled('driver_id')) {
-                $isDriverConflict = (clone $overlappingQuery)
-                    ->where('driver_id', $request->driver_id)
-                    ->exists();
+            $isDriverConflict = (clone $overlappingQuery)
+                ->where('driver_id', $request->driver_id)
+                ->exists();
 
-                if ($isDriverConflict) {
-                    throw ValidationException::withMessages([
-                        'driver_id' => 'Driver yang dipilih sudah ditugaskan pada perjalanan lain di rentang waktu tersebut.'
-                    ]);
-                }
+            if ($isDriverConflict) {
+                throw ValidationException::withMessages([
+                    'driver_id' => 'Driver yang dipilih sudah ditugaskan pada perjalanan lain di rentang waktu tersebut.'
+                ]);
             }
 
             DB::transaction(function () use ($booking, $request, $currentUser) {
@@ -719,7 +788,9 @@ class BookingController extends Controller
                 ? $booking->vehicle->brand . ' ' . $booking->vehicle->model . ' (' . $booking->vehicle->plate_number . ')' 
                 : '-';
                 
-            $driverName = $booking->driver ? $booking->driver->name : 'Lepas Kunci (Tanpa Driver)';
+            $driverName = $booking->driver
+                ? $booking->driver->name . ($booking->driver->role !== 'driver' ? ' (Anggota Tim)' : '')
+                : '-';
 
             $approverPhones = User::where('role', 'approver')->pluck('phone')->filter()->toArray();
             if (!empty($approverPhones)) {
@@ -897,25 +968,37 @@ class BookingController extends Controller
                     ]);
                 }
 
-                $adminAppUsers = User::whereIn('role', ['admin_app', 'admin_lap'])
-                    ->whereNotNull('email')
-                    ->get(['email', 'name']);
+                // $adminAppUsers = User::whereIn('role', ['admin_app', 'admin_lap'])
+                //     ->whereNotNull('email')
+                //     ->get(['email', 'name']);
 
-                foreach ($adminAppUsers as $admin) {
-                    $targetUsers->push([
-                        'email' => $admin->email,
-                        'name'  => $admin->name
-                    ]);
-                }
+                // foreach ($adminAppUsers as $admin) {
+                //     $targetUsers->push([
+                //         'email' => $admin->email,
+                //         'name'  => $admin->name
+                //     ]);
+                // }
 
                 $uniqueRecipients = $targetUsers->unique('email');
 
                 foreach ($uniqueRecipients as $recipient) {
-                    Mail::to($recipient['email'])->queue(
-                        new BookingCompletedMail($booking, $recipient['name'])
-                    );
+                    // 1. Lewati jika format email tidak valid agar tidak memutus loop
+                    if (!filter_var($recipient['email'], FILTER_VALIDATE_EMAIL)) {
+                        Log::warning("Melewati pengiriman email karena format tidak valid: {$recipient['email']}");
+                        continue;
+                    }
+
+                    // 2. Bungkus try-catch per penerima agar 1 gagal tidak menghambat yang lain
+                    try {
+                        Mail::to($recipient['email'])->queue(
+                            new BookingCompletedMail($booking, $recipient['name'])
+                        );
+                    } catch (\Throwable $e) {
+                        Log::error("Gagal memasukkan antrean email ke {$recipient['email']}: " . $e->getMessage());
+                    }
                 }
             } catch (\Throwable $e) {
+                dump($e->getMessage());
                 Log::error('Gagal mengirim email BookingCompletedMail: ' . $e->getMessage());
             }
 
@@ -1244,10 +1327,15 @@ class BookingController extends Controller
 
         $returnLetterPath = null;
         if ($request->hasFile('return_letter_file')) {
-            if ($booking->return_letter_file && Storage::disk('public')->exists($booking->return_letter_file)) {
-                Storage::disk('public')->delete($booking->return_letter_file);
+            if ($booking->return_letter_file) {
+                if (Storage::disk('local')->exists($booking->return_letter_file)) {
+                    Storage::disk('local')->delete($booking->return_letter_file);
+                }
+                if (Storage::disk('public')->exists($booking->return_letter_file)) {
+                    Storage::disk('public')->delete($booking->return_letter_file);
+                }
             }
-            $returnLetterPath = $request->file('return_letter_file')->store('return_letters', 'public');
+            $returnLetterPath = $request->file('return_letter_file')->store('return_letters', 'local');
         }
 
         DB::transaction(function () use ($booking, $request, $returnLetterPath) {
@@ -1461,7 +1549,9 @@ class BookingController extends Controller
         }
 
         $vehicles = Vehicle::where('status', '!=', 'maintenance')->where('type', 'monitoring')->get();
-        $users = User::whereIn('role', ['admin_lap', 'pegawai', 'driver', 'admin_app'])->orderBy('name', 'asc')->get(['id', 'name', 'nip', 'jabatan', 'role']);
+        $users = User::whereIn('role', ['admin_lap', 'pegawai', 'driver', 'admin_app', 'approver'])
+            ->orderBy('name', 'asc')
+            ->get(['id', 'name', 'nip', 'jabatan', 'role']);
 
         return view('bookings.edit', compact('booking', 'vehicles', 'users'));
     }
@@ -1484,9 +1574,10 @@ class BookingController extends Controller
         }
 
         $validated = $request->validated();
+        unset($validated['signature']);
 
         // Perbarui jenis dokumen (surat_tugas / nota_dinas)
-        $validated['letter_type'] = $request->input('letter_type', $booking->letter_type); // <-- BARU
+        $validated['letter_type'] = $request->input('letter_type', $booking->letter_type);
 
         $validated['participants'] = isset($validated['participants']) 
             ? array_values(array_filter($validated['participants'])) 
@@ -1542,10 +1633,15 @@ class BookingController extends Controller
         }
 
         if ($request->hasFile('letter_file')) {
-            if ($booking->letter_file && Storage::disk('public')->exists($booking->letter_file)) {
-                Storage::disk('public')->delete($booking->letter_file);
+            if ($booking->letter_file) {
+                if (Storage::disk('local')->exists($booking->letter_file)) {
+                    Storage::disk('local')->delete($booking->letter_file);
+                }
+                if (Storage::disk('public')->exists($booking->letter_file)) {
+                    Storage::disk('public')->delete($booking->letter_file);
+                }
             }
-            $validated['letter_file'] = $request->file('letter_file')->store('letters', 'public');
+            $validated['letter_file'] = $request->file('letter_file')->store('letters', 'local');
         }
 
         if ($booking->letter_number !== $validated['letter_number']) {
@@ -1556,9 +1652,67 @@ class BookingController extends Controller
             $validated['status'] = 'pending';
         }
 
-        $booking->update($validated);
+        DB::transaction(function () use ($booking, $validated, $request, $currentUser) {
+            $booking->update($validated);
 
-        return redirect()->route('bookings.index')->with('success', 'Permohonan peminjaman berhasil diperbarui.');
+            // Perbarui PNG tanda tangan Pemohon di private storage & hapus TTD lama
+            $this->savePrivateSignature(
+                $request,
+                $booking,
+                'formulir_peminjaman',
+                'pemohon',
+                $request->input('signature'),
+                $currentUser->id
+            );
+        });
+
+        // Regenerasi & enkripsi ulang PDF Formulir Permohonan ke versi terbaru
+        DocumentArchiveService::archiveDocument($booking, 'formulir_peminjaman');
+
+        // Jika arsip BAST Peminjaman sudah pernah terbentuk, perbarui juga ke data terbaru
+        if (\App\Models\BookingDocument::where('booking_id', $booking->id)
+            ->where('document_type', 'bast_peminjaman')
+            ->exists()
+        ) {
+            DocumentArchiveService::archiveDocument($booking, 'bast_peminjaman');
+        }
+
+        // Kirim Notifikasi WhatsApp ke Admin Lapangan bahwa permohonan telah diperbaiki
+        $adminPhones = User::where('role', 'admin_lap')->pluck('phone')->filter()->toArray();
+        if (!empty($adminPhones)) {
+            $booking->load(['user', 'vehicle']);
+
+            $startDateStr = \Carbon\Carbon::parse($booking->start_date)->format('d/m/Y H:i');
+            $endDateStr   = \Carbon\Carbon::parse($booking->end_date)->format('d/m/Y H:i');
+            $docLabel     = $booking->letter_type === 'nota_dinas' ? 'Nota Dinas' : 'Surat Tugas';
+            $armadaInfo   = strtoupper($booking->vehicle_type);
+
+            if ($booking->vehicle_type === 'monitoring' && $booking->vehicle) {
+                $armadaInfo .= " ({$booking->vehicle->brand} {$booking->vehicle->model} - {$booking->vehicle->plate_number})";
+            }
+
+            $updatedByLine = $currentUser->id !== $booking->user_id
+                ? "Diperbarui oleh: {$currentUser->name}\n"
+                : '';
+
+            $msgAdmin = "✏️ *PERBAIKAN PERMOHONAN PEMINJAMAN*\n\n"
+                . "No. {$docLabel}: {$booking->letter_number}\n"
+                . "Pemohon: " . ($booking->user->name ?? '-') . "\n"
+                . $updatedByLine
+                . "Tipe Armada: {$armadaInfo}\n"
+                . "Tujuan: {$booking->destination}\n"
+                . "Jadwal: {$startDateStr} s.d. {$endDateStr}\n\n"
+                . "Data permohonan peminjaman telah diperbaiki. Mohon tinjau kembali dan lakukan alokasi armada & driver via aplikasi Balmon-Fleet.";
+
+            try {
+                WhatsAppService::sendBulkMessage($adminPhones, $msgAdmin);
+            } catch (\Throwable $e) {
+                Log::error('Gagal mengirim WA perbaikan permohonan ke Admin Lapangan: ' . $e->getMessage());
+            }
+        }
+
+        return redirect()->route('bookings.index')
+            ->with('success', 'Permohonan peminjaman, tanda tangan, dan dokumen arsip berhasil diperbarui.');
     }
 
     public function cancelBooking(Request $request, Booking $booking)

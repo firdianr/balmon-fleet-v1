@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class StoreBookingRequest extends FormRequest
@@ -35,7 +36,18 @@ class StoreBookingRequest extends FormRequest
             'participants'         => ['nullable', 'array'],
             'participants.*'       => ['nullable', 'exists:users,id'],
             'letter_file'          => ['required_without:letter_file_temp', 'nullable', 'file', 'mimes:pdf', 'max:5120'],
-            'letter_file_temp'     => ['nullable', 'string'],
+            'letter_file_temp'     => [
+                'nullable',
+                'string',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if (!empty($value) && !$this->hasFile('letter_file')) {
+                        $path = (string) $value;
+                        if (!str_starts_with($path, 'temp_letters/') || str_contains($path, '..') || !Storage::disk('local')->exists($path)) {
+                            $fail('Sesi berkas PDF sementara telah kedaluwarsa atau tidak valid. Silakan unggah ulang dokumen.');
+                        }
+                    }
+                },
+            ],
             'booking_type'         => ['nullable', 'string', 'in:single_day,multi_day'],
         ];
     }

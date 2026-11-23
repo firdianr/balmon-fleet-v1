@@ -16,7 +16,9 @@
          x-data="{ 
             search: '', 
             sort: 'name_asc',
-            users: {{ json_encode($users->items()) }}, 
+            initialUsers: @js($users->items()),
+            users: [], 
+            isFiltered: false,
             showDeleteModal: false,
             selectedUser: null,
             isLoading: false,
@@ -26,12 +28,13 @@
                     .then(res => res.json())
                     .then(data => {
                         this.users = data.data;
+                        this.isFiltered = true;
                         this.isLoading = false;
                     })
                     .catch(() => { this.isLoading = false; });
             }
          }"
-         x-init="$watch('search', value => fetchUsers());$watch('sort', () => fetchUsers())">
+         x-init="$watch('search', () => fetchUsers()); $watch('sort', () => fetchUsers())">
         
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
             
@@ -83,100 +86,199 @@
                 </a>
             </div>
 
-            {{-- 1. TAMPILAN KARTU SMARTPHONE / MOBILE (Kunci min-h-[580px] cegah CLS) --}}
-            <div class="block md:hidden space-y-3 min-h-[580px]">
-                <template x-for="user in users" :key="user.id">
-                    <div class="bg-white rounded-2xl border border-gray-200/80 p-4 shadow-xs space-y-3">
-                        <div class="flex items-start justify-between gap-2 border-b border-gray-100 pb-2.5">
-                            <div>
-                                <h3 class="font-bold text-sm text-gray-900" x-text="user.name"></h3>
-                                <p class="font-mono text-xs text-indigo-600 font-semibold mt-0.5" x-text="user.nip ? 'NIP: ' + user.nip : 'NIP: -'"></p>
-                            </div>
-                            
-                            <span class="px-2.5 py-1 text-[11px] font-extrabold rounded-full shrink-0 uppercase tracking-wider border shadow-2xs"
-                                :class="{
-                                    'bg-purple-100 text-purple-800 border-purple-200': user.role === 'admin_app',
-                                    'bg-amber-100 text-amber-800 border-amber-200': user.role === 'admin_lap',
-                                    'bg-emerald-100 text-emerald-800 border-emerald-200': user.role === 'approver',
-                                    'bg-red-100 text-red-800 border-red-200': user.role === 'driver',
-                                    'bg-sky-100 text-sky-800 border-sky-200': user.role === 'pegawai'
-                                }">
-                                <span x-text="
-                                    user.role === 'admin_app' ? 'ADMIN APP' :
-                                    (user.role === 'admin_lap' ? 'ADMIN LAP' :
-                                    (user.role === 'approver' ? 'APPROVER' :
-                                    (user.role === 'driver' ? 'DRIVER' : 'PEGAWAI')))
-                                "></span>
-                            </span>
-                        </div>
-
-                        <div class="space-y-1.5 text-xs text-gray-700">
-                            <div class="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-400 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                                </svg>
+            {{-- 1. TAMPILAN KARTU SMARTPHONE / MOBILE --}}
+            <div class="block md:hidden space-y-3">
+                {{-- DATA AWAL (SSR BLADE - ZERO CLS) --}}
+                <div x-show="!isFiltered" class="space-y-3">
+                    @forelse($users as $index => $user)
+                        @php
+                            $badgeClass = match($user->role) {
+                                'admin_app' => 'bg-purple-100 text-purple-800 border-purple-200',
+                                'admin_lap' => 'bg-amber-100 text-amber-800 border-amber-200',
+                                'approver'  => 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                                'driver'    => 'bg-red-100 text-red-800 border-red-200',
+                                default     => 'bg-sky-100 text-sky-800 border-sky-200',
+                            };
+                            $roleLabel = match($user->role) {
+                                'admin_app' => 'ADMIN APP',
+                                'admin_lap' => 'ADMIN LAP',
+                                'approver'  => 'APPROVER',
+                                'driver'    => 'DRIVER',
+                                default     => 'PEGAWAI',
+                            };
+                        @endphp
+                        <div class="bg-white rounded-2xl border border-gray-200/80 p-4 shadow-xs space-y-3">
+                            <div class="flex items-start justify-between gap-2 border-b border-gray-100 pb-2.5">
                                 <div>
-                                    <span class="font-bold text-gray-800" x-text="user.jabatan ?? '-'"></span>
-                                    <span class="text-gray-500" x-text="user.pangkat ? ' (' + user.pangkat + ')' : ''"></span>
+                                    <h3 class="font-bold text-sm text-gray-900">{{ $user->name }}</h3>
+                                    <p class="font-mono text-xs text-indigo-600 font-semibold mt-0.5">{{ $user->nip ? 'NIP: ' . $user->nip : 'NIP: -' }}</p>
+                                </div>
+                                <span class="px-2.5 py-1 text-[11px] font-extrabold rounded-full shrink-0 uppercase tracking-wider border shadow-2xs {{ $badgeClass }}">
+                                    {{ $roleLabel }}
+                                </span>
+                            </div>
+
+                            <div class="space-y-1.5 text-xs text-gray-700">
+                                <div class="flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-400 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                                    </svg>
+                                    <div>
+                                        <span class="font-bold text-gray-800">{{ $user->jabatan ?? '-' }}</span>
+                                        @if($user->pangkat)
+                                            <span class="text-gray-500"> ({{ $user->pangkat }})</span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-2 text-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-400 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                        <polyline points="22,6 12,13 2,6"/>
+                                    </svg>
+                                    <span class="font-medium">{{ $user->email }}</span>
+                                </div>
+
+                                <div class="flex items-center gap-2 text-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-400 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="4" y="2" width="16" height="20" rx="2" ry="2"/>
+                                        <path d="M9 22v-4h6v4"/>
+                                        <path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/>
+                                        <path d="M12 10h.01"/><path d="M12 14h.01"/>
+                                        <path d="M16 10h.01"/><path d="M16 14h.01"/>
+                                        <path d="M8 10h.01"/><path d="M8 14h.01"/>
+                                    </svg>
+                                    <span class="font-medium">{{ $user->department ?? '-' }}</span>
                                 </div>
                             </div>
 
-                            <div class="flex items-center gap-2 text-gray-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-400 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                                    <polyline points="22,6 12,13 2,6"/>
-                                </svg>
-                                <span class="font-medium" x-text="user.email"></span>
-                            </div>
-
-                            <div class="flex items-center gap-2 text-gray-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-400 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="4" y="2" width="16" height="20" rx="2" ry="2"/>
-                                    <path d="M9 22v-4h6v4"/>
-                                    <path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/>
-                                    <path d="M12 10h.01"/><path d="M12 14h.01"/>
-                                    <path d="M16 10h.01"/><path d="M16 14h.01"/>
-                                    <path d="M8 10h.01"/><path d="M8 14h.01"/>
-                                </svg>
-                                <span class="font-medium" x-text="user.department ?? '-'"></span>
-                            </div>
-                        </div>
-
-                        <div class="pt-2.5 border-t border-gray-100 flex items-center justify-end gap-2">
-                            <a :href="`/admin-app/users/${user.slug}/edit`" 
-                               class="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs transition text-center flex items-center justify-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                                </svg>
-                                <span>Edit</span>
-                            </a>
-                            
-                            <template x-if="user.id !== {{ auth()->id() }}">
-                                <button type="button" 
-                                        @click="selectedUser = user; showDeleteModal = true" 
-                                        class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition text-center flex items-center justify-center gap-1.5"
-                                        aria-label="Hapus Akun User">
+                            <div class="pt-2.5 border-t border-gray-100 flex items-center justify-end gap-2">
+                                <a href="{{ route('admin_app.users.edit', $user->slug) }}" 
+                                   class="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs transition text-center flex items-center justify-center gap-1.5">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="3 6 5 6 21 6"/>
-                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                     </svg>
-                                    <span>Hapus</span>
-                                </button>
-                            </template>
+                                    <span>Edit</span>
+                                </a>
+                                
+                                @if($user->id !== auth()->id())
+                                    <button type="button" 
+                                            @click="selectedUser = initialUsers[{{ $index }}]; showDeleteModal = true" 
+                                            class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition text-center flex items-center justify-center gap-1.5"
+                                            aria-label="Hapus Akun User">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="3 6 5 6 21 6"/>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                        </svg>
+                                        <span>Hapus</span>
+                                    </button>
+                                @endif
+                            </div>
                         </div>
-                    </div>
-                </template>
+                    @empty
+                        <div class="bg-white rounded-2xl border border-gray-200/80 p-6 text-center text-gray-500 text-xs">
+                            Data user/pegawai tidak ditemukan.
+                        </div>
+                    @endforelse
+                </div>
 
-                <div x-show="users.length === 0" class="bg-white rounded-2xl border border-gray-200/80 p-6 text-center text-gray-500 text-xs">
-                    Data user/pegawai tidak ditemukan.
+                {{-- HASIL PENCARIAN / SORTING REAL-TIME (ALPINE) --}}
+                <div x-show="isFiltered" x-cloak class="space-y-3">
+                    <template x-for="user in users" :key="user.id">
+                        <div class="bg-white rounded-2xl border border-gray-200/80 p-4 shadow-xs space-y-3">
+                            <div class="flex items-start justify-between gap-2 border-b border-gray-100 pb-2.5">
+                                <div>
+                                    <h3 class="font-bold text-sm text-gray-900" x-text="user.name"></h3>
+                                    <p class="font-mono text-xs text-indigo-600 font-semibold mt-0.5" x-text="user.nip ? 'NIP: ' + user.nip : 'NIP: -'"></p>
+                                </div>
+                                
+                                <span class="px-2.5 py-1 text-[11px] font-extrabold rounded-full shrink-0 uppercase tracking-wider border shadow-2xs"
+                                    :class="{
+                                        'bg-purple-100 text-purple-800 border-purple-200': user.role === 'admin_app',
+                                        'bg-amber-100 text-amber-800 border-amber-200': user.role === 'admin_lap',
+                                        'bg-emerald-100 text-emerald-800 border-emerald-200': user.role === 'approver',
+                                        'bg-red-100 text-red-800 border-red-200': user.role === 'driver',
+                                        'bg-sky-100 text-sky-800 border-sky-200': user.role === 'pegawai'
+                                    }">
+                                    <span x-text="
+                                        user.role === 'admin_app' ? 'ADMIN APP' :
+                                        (user.role === 'admin_lap' ? 'ADMIN LAP' :
+                                        (user.role === 'approver' ? 'APPROVER' :
+                                        (user.role === 'driver' ? 'DRIVER' : 'PEGAWAI')))
+                                    "></span>
+                                </span>
+                            </div>
+
+                            <div class="space-y-1.5 text-xs text-gray-700">
+                                <div class="flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-400 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                                    </svg>
+                                    <div>
+                                        <span class="font-bold text-gray-800" x-text="user.jabatan ?? '-'"></span>
+                                        <span class="text-gray-500" x-text="user.pangkat ? ' (' + user.pangkat + ')' : ''"></span>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-2 text-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-400 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                        <polyline points="22,6 12,13 2,6"/>
+                                    </svg>
+                                    <span class="font-medium" x-text="user.email"></span>
+                                </div>
+
+                                <div class="flex items-center gap-2 text-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-gray-400 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="4" y="2" width="16" height="20" rx="2" ry="2"/>
+                                        <path d="M9 22v-4h6v4"/>
+                                        <path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/>
+                                        <path d="M12 10h.01"/><path d="M12 14h.01"/>
+                                        <path d="M16 10h.01"/><path d="M16 14h.01"/>
+                                        <path d="M8 10h.01"/><path d="M8 14h.01"/>
+                                    </svg>
+                                    <span class="font-medium" x-text="user.department ?? '-'"></span>
+                                </div>
+                            </div>
+
+                            <div class="pt-2.5 border-t border-gray-100 flex items-center justify-end gap-2">
+                                <a :href="`/admin-app/users/${user.slug}/edit`" 
+                                   class="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs transition text-center flex items-center justify-center gap-1.5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                    <span>Edit</span>
+                                </a>
+                                
+                                <template x-if="user.id !== {{ auth()->id() }}">
+                                    <button type="button" 
+                                            @click="selectedUser = user; showDeleteModal = true" 
+                                            class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition text-center flex items-center justify-center gap-1.5"
+                                            aria-label="Hapus Akun User">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="3 6 5 6 21 6"/>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                        </svg>
+                                        <span>Hapus</span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div x-show="users.length === 0" class="bg-white rounded-2xl border border-gray-200/80 p-6 text-center text-gray-500 text-xs">
+                        Data user/pegawai tidak ditemukan.
+                    </div>
                 </div>
             </div>
 
-            {{-- 2. TAMPILAN TABEL DESKTOP (Kunci min-h-[520px] cegah CLS) --}}
-            <div class="hidden md:block bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden min-h-[580px]">
-                <div class="overflow-x-auto min-h-[520px]">
+            {{-- 2. TAMPILAN TABEL DESKTOP --}}
+            <div class="hidden md:block bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
+                <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600 uppercase">
@@ -189,7 +291,79 @@
                                 <th class="p-3 text-center">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-200 text-sm">
+
+                        {{-- DATA AWAL (SSR BLADE - ZERO CLS) --}}
+                        <tbody x-show="!isFiltered" class="divide-y divide-gray-200 text-sm">
+                            @forelse($users as $index => $user)
+                                @php
+                                    $badgeClass = match($user->role) {
+                                        'admin_app' => 'bg-purple-100 text-purple-800 border-purple-200',
+                                        'admin_lap' => 'bg-amber-100 text-amber-800 border-amber-200',
+                                        'approver'  => 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                                        'driver'    => 'bg-red-100 text-red-800 border-red-200',
+                                        default     => 'bg-sky-100 text-sky-800 border-sky-200',
+                                    };
+                                    $roleLabel = match($user->role) {
+                                        'admin_app' => 'ADMIN APP',
+                                        'admin_lap' => 'ADMIN LAP',
+                                        'approver'  => 'APPROVER',
+                                        'driver'    => 'DRIVER',
+                                        default     => 'PEGAWAI',
+                                    };
+                                @endphp
+                                <tr class="hover:bg-gray-50/80 transition-colors">
+                                    <td class="p-3 font-medium text-gray-900">{{ $user->name }}</td>
+                                    <td class="p-3 font-mono text-xs text-indigo-600 font-semibold">{{ $user->nip ?? '-' }}</td>
+                                    <td class="p-3 text-gray-600 text-xs">
+                                        <div class="font-medium text-gray-800">{{ $user->jabatan ?? '-' }}</div>
+                                        <div class="text-gray-500">{{ $user->pangkat ?? '' }}</div>
+                                    </td>
+                                    <td class="p-3 text-gray-600">{{ $user->email }}</td>
+                                    <td class="p-3 text-gray-600">{{ $user->department ?? '-' }}</td>
+
+                                    <td class="p-3 whitespace-nowrap">
+                                        <span class="px-2.5 py-1 text-xs font-bold rounded-full border shadow-2xs {{ $badgeClass }}">
+                                            {{ $roleLabel }}
+                                        </span>
+                                    </td>
+
+                                    <td class="p-3 text-center whitespace-nowrap">
+                                        <div class="inline-flex items-center justify-center gap-1.5">
+                                            <a href="{{ route('admin_app.users.edit', $user->slug) }}" 
+                                               class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg shadow-2xs transition">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                                </svg>
+                                                <span>Edit</span>
+                                            </a>
+                                            
+                                            @if($user->id !== auth()->id())
+                                                <button type="button" 
+                                                        @click="selectedUser = initialUsers[{{ $index }}]; showDeleteModal = true" 
+                                                        class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-2xs transition"
+                                                        aria-label="Hapus Akun User">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="3 6 5 6 21 6"/>
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                                    </svg>
+                                                    <span>Hapus</span>
+                                                </button>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="p-4 text-center text-gray-500 text-xs">
+                                        Data user/pegawai tidak ditemukan.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+
+                        {{-- HASIL PENCARIAN / SORTING REAL-TIME (ALPINE) --}}
+                        <tbody x-show="isFiltered" x-cloak class="divide-y divide-gray-200 text-sm">
                             <template x-for="user in users" :key="user.id">
                                 <tr class="hover:bg-gray-50/80 transition-colors">
                                     <td class="p-3 font-medium text-gray-900" x-text="user.name"></td>

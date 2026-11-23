@@ -1002,7 +1002,7 @@
                                 @if($booking->letter_type === 'nota_dinas')
                                     {{-- 1. Tombol Lihat Nota Dinas (Utama) --}}
                                     @if($booking->letter_file)
-                                        <a href="{{ asset('storage/' . $booking->letter_file) }}" target="_blank" 
+                                        <a href="{{ route('bookings.files.letter', $booking->letter_slug) }}" target="_blank" 
                                         class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs sm:text-sm font-bold transition border border-indigo-200">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -1015,7 +1015,7 @@
 
                                     {{-- 2. Tombol Lihat Surat Tugas (Aktif jika sudah di-upload saat pengembalian, Disabled jika belum) --}}
                                     @if($booking->return_letter_file)
-                                        <a href="{{ asset('storage/' . $booking->return_letter_file) }}" target="_blank" 
+                                        <a href="{{ route('bookings.files.return_letter', $booking->letter_slug) }}" target="_blank" 
                                         class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-xl text-xs sm:text-sm font-bold transition border border-amber-300">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-amber-700 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -1037,7 +1037,7 @@
                                 @else
                                     {{-- Jika Jenis Surat dari awal adalah Surat Tugas Murni (Hanya 1 Tombol) --}}
                                     @if($booking->letter_file)
-                                        <a href="{{ asset('storage/' . $booking->letter_file) }}" target="_blank" 
+                                        <a href="{{ route('bookings.files.letter', $booking->letter_slug) }}" target="_blank" 
                                         class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs sm:text-sm font-bold transition border border-indigo-200">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-none stroke-indigo-600 stroke-2 shrink-0" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

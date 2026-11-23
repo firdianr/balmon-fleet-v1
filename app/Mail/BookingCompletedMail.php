@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Booking;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -10,11 +11,26 @@ use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Log;
 
 class BookingCompletedMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
+
+    /**
+     * Maksimal percobaan kirim sebelum dilewati ke failed_jobs agar tidak menyumbat queue
+     */
+    public int $tries = 2;
+
+    /**
+     * Jeda waktu (detik) sebelum mencoba ulang jika terjadi gangguan jaringan sementara
+     */
+    public int $backoff = 10;
+
+    /**
+     * Hapus job otomatis jika data booking sudah dihapus dari database
+     */
+    public bool $deleteWhenMissingModels = true;
 
     public Booking $booking;
     public string $recipientName;
@@ -78,5 +94,13 @@ class BookingCompletedMail extends Mailable implements ShouldQueue
         }
 
         return $attachments;
+    }
+
+    /**
+     * Tangani kegagalan permanen tanpa menghentikan worker
+     */
+    public function failed(\Throwable $exception): void
+    {
+        Log::error("Antrean BookingCompletedMail gagal permanen untuk surat {$this->booking->letter_number}: " . $exception->getMessage());
     }
 }
