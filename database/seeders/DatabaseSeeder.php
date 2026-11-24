@@ -80,7 +80,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->call([
-            UserSeeder::class,
+            // UserSeeder::class,
             VehicleSeeder::class,
             MasterChecklistSeeder::class,
         ]);

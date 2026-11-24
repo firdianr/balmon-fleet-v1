@@ -119,6 +119,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::middleware(['role:admin_app'])->prefix('admin-app')->name('admin_app.')->group(function () {
+        // Import Excel (.xlsx) / CSV: Template, Pratinjau Seleksi, & Simpan Final
+        Route::get('users/import/template', [UserController::class, 'downloadImportTemplate'])->name('users.import.template');
+        Route::post('users/import/preview', [UserController::class, 'previewImport'])->name('users.import.preview');
+        Route::post('users/import', [UserController::class, 'import'])->name('users.import');
+
         // Kelola Akun Pengguna (CRUD User)
         Route::resource('users', UserController::class);
     });
